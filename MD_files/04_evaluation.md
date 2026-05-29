@@ -1,5 +1,15 @@
 # 04. 평가 프로토콜 및 베이스라인
 
+이 문서는 [01_motivation.md](01_motivation.md)에서 정의한 이벤트 이해의 세 진단 (a) Locality / (b) Generalization / (c) Reasoning over retrieval 을 어떻게 구체적으로 측정하는지 명세한다. 진단과 평가 기제의 대응은 다음과 같다.
+
+| 진단 | 평가 기제 | 핵심 metric |
+|------|----------|------------|
+| (a) Locality | ROI 라벨 + ROI/non-ROI 분리 | ROI MSE, non-ROI MSE, ROI degradation / Overall degradation |
+| (b) Generalization | text-knowledge-transfer protocol (1→4 LODO, target TS 고정) | Cross-domain degradation ratio (텍스트 우위의 cross-domain 보존율) |
+| (c) Reasoning over retrieval | Clean / additive-noise variants (CiK 방식) | clean-vs-noise gap (텍스트 우위 중 perturbation에서 살아남는 비율) |
+
+세 진단 모두에서 우위를 유지하는 모델만이 이벤트 이해를 학습했다고 주장할 수 있다.
+
 ## 평가 Protocol
 
 ### 3가지 셋업
@@ -16,11 +26,11 @@
 ### Cross-domain의 정확한 의미 (중요)
 **우리 cross-domain은 단순 TS swap이 아니라 텍스트/이벤트 지식 transfer 테스트다.**
 
-- 평가하는 시계열은 항상 **target 도메인의 TS** (그대로). 모델한테 forecast하라고 주는 입력·출력은 target의 OT.
-- 바뀌는 건 **모델이 가진 텍스트/이벤트 지식의 출처** — source 도메인에서 학습된(또는 source의 텍스트/KB를 쓰는) 모델이 target TS를 예측할 때, source-derived 이벤트 reasoning이 도움 되나?
-- 핵심 질문: 모델이 **도메인-agnostic한 이벤트 의미**를 배웠나, 아니면 source-text↔source-TS pairing만 외웠나? VoT 같은 case-based 방법은 후자라는 게 우리 가설.
+- 평가하는 시계열은 항상 **target 도메인의 TS** (고정). 모델한테 forecast하라고 주는 입력·출력은 target의 OT.
+- 바뀌는 건 **모델이 학습한 텍스트 지식의 출처(source 도메인)**. source 도메인에서 학습된 multimodal 모델이 target TS를 예측할 때, source의 텍스트/KB로부터 얻은 이벤트 reasoning이 도움이 되나?
+- 핵심 질문: 모델이 도메인-agnostic한 이벤트 표현을 배웠나, 아니면 **in-distribution shortcut**(source-text와 source-TS 사이의 분포 의존적 mapping)에 머물러 있나? case-based 계열(VoT의 HIC, FNF의 reflection)은 후자라는 게 우리 가설.
 
-**왜 단순 TS swap은 안 쓰나:** 도메인마다 시계열 동역학이 근본적으로 다름(Agri 가격 vs Economy 무역수지 vs Security 재난보조금). source TS로 학습한 모델이 target TS 못 맞추는 건 trivial(사과를 오렌지에 적용)이라 흥미로운 인사이트가 안 나옴. 우리 contribution은 이벤트(텍스트) 모달리티의 transferability이지 TS 자체의 transferability가 아니므로, 측정도 그에 맞춰야 함.
+**왜 단순 TS swap은 안 쓰나.** 도메인마다 시계열 동역학이 근본적으로 다르다(Agri 가격 vs Economy 무역수지 vs Security 재난보조금). source TS로 학습한 모델이 target TS를 못 맞추는 건 trivial한 결과(사과를 오렌지에 적용)라 (b) Generalization의 진단으로 의미가 없다. 우리가 측정하고 싶은 건 텍스트 모달리티의 transferability이지 TS 자체의 transferability가 아니다.
 
 **TS-only 베이스라인(DLinear/PatchTST)은 cross-domain 헤드라인 비교에 참여하지 않음.** 텍스트 입력이 없어 측정할 게 없기 때문. In-domain 측정에만 의미가 있고, cross-domain 자리에는 TS-swap LODO 결과를 reference로 표시할 수는 있으나 헤드라인은 아님.
 
