@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EATF Dataset — Phase 1 진행 정리</title>
+<style>
+  :root{
+    --bg:#ffffff; --panel:#f8fafc; --panel2:#f1f5f9;
+    --ink:#1e293b; --muted:#64748b; --accent:#0284c7; --accent2:#059669;
+    --warn:#b45309; --danger:#dc2626; --line:#e2e8f0;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:"Malgun Gothic","Apple SD Gothic Neo",-apple-system,Segoe UI,Roboto,sans-serif;
+    background:var(--bg);color:var(--ink);overflow:hidden;
+  }
+  #stage{height:100vh;overflow-y:scroll;scroll-snap-type:y mandatory;scroll-behavior:smooth}
+  .slide{min-height:100vh;scroll-snap-align:start;display:flex;flex-direction:column;justify-content:center;padding:8vh 7vw;border-bottom:1px solid var(--line)}
+  .slide>*{width:100%;max-width:1000px;margin-left:auto;margin-right:auto}
+
+  .kicker{color:var(--accent);font-size:14px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;margin-bottom:14px}
+  h1{font-size:46px;line-height:1.15;margin-bottom:18px;font-weight:800}
+  h2{font-size:30px;margin-bottom:22px;font-weight:750;display:flex;align-items:center;gap:12px}
+  h2 .num{color:var(--accent);font-size:18px;font-weight:700;border:1px solid var(--line);border-radius:8px;padding:3px 10px}
+  .lead{color:var(--muted);font-size:19px;line-height:1.6}
+
+  ul{list-style:none;display:flex;flex-direction:column;gap:12px;margin-top:6px}
+  li{display:flex;gap:12px;align-items:flex-start;font-size:18px;line-height:1.45}
+  li::before{content:"▸";color:var(--accent);font-weight:700;flex:none;margin-top:1px}
+  li b{color:var(--ink)}
+  .sub{color:var(--muted);font-size:15px}
+
+  .grid{display:grid;gap:14px;margin-top:6px}
+  .g2{grid-template-columns:1fr 1fr}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px}
+  .card h3{font-size:15px;color:var(--accent);margin-bottom:10px;font-weight:700;letter-spacing:.03em}
+  .card p{font-size:14px;color:var(--muted);line-height:1.5}
+  .card .big{font-size:30px;font-weight:800;color:var(--ink)}
+
+  table{width:100%;border-collapse:collapse;margin-top:8px;font-size:16px}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line)}
+  th{color:var(--accent);font-weight:700;font-size:13px;letter-spacing:.04em;text-transform:uppercase}
+  td b{color:var(--ink)}
+  tr:last-child td{border-bottom:none}
+  .tag{display:inline-block;font-size:12px;padding:2px 8px;border-radius:6px;font-weight:700}
+  .t-fix{background:rgba(52,211,153,.15);color:var(--accent2)}
+  .t-warn{background:rgba(251,191,36,.15);color:var(--warn)}
+  .t-cut{background:rgba(248,113,113,.15);color:var(--danger)}
+
+  .mono{font-family:"Cascadia Code",Consolas,monospace}
+  pre{background:#f8fafc;border:1px solid var(--line);border-radius:12px;padding:18px 20px;
+      font-family:"Cascadia Code",Consolas,monospace;font-size:14px;line-height:1.6;color:#334155;overflow:auto;margin-top:6px}
+  pre .c{color:var(--accent2)} pre .m{color:var(--muted)} pre .a{color:var(--accent)}
+
+  .flow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px}
+  .step{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 16px;font-size:15px}
+  .step b{color:#fff;display:block;font-size:13px;color:var(--accent)}
+  .arrow{color:var(--muted);font-size:20px}
+
+  .pill{display:inline-block;background:var(--panel2);border:1px solid var(--line);
+        border-radius:999px;padding:6px 14px;font-size:14px;margin:4px 6px 0 0;color:var(--ink)}
+
+  /* chrome */
+  #bar{position:fixed;top:0;left:0;height:3px;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .3s}
+  #hud{position:fixed;bottom:18px;right:24px;color:var(--muted);font-size:13px;font-family:monospace}
+  #dots{position:fixed;top:50%;right:20px;transform:translateY(-50%);display:flex;flex-direction:column;gap:10px;z-index:10}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--line);cursor:pointer;transition:.2s}
+  .dot.on{background:var(--accent);transform:scale(1.3)}
+  #hint{position:fixed;bottom:18px;left:24px;color:var(--muted);font-size:12px;font-family:monospace}
+  .foot{margin-top:22px;color:var(--muted);font-size:13px;border-top:1px solid var(--line);padding-top:12px}
+</style>
+</head>
+<body>
+<div id="bar"></div>
+<div id="stage">
+
+  <!-- 1 TITLE -->
+  <section class="slide active">
+    <div class="kicker">Cross-Domain Event-Aware TS Benchmark</div>
+    <h1>EATF Dataset<br><span style="color:var(--accent)">Phase 1</span> 진행 정리</h1>
+    <p class="lead">Time-MMD 기반 이벤트 인지형 시계열 예측 벤치마크 구축<br>데이터 통합 · 검증 · EDA 완료</p>
+    <div class="foot">데이터 통합(Phase 1) 완료 · 5개 monthly 도메인 · Phase 2 파일럿 대기</div>
+  </section>
+
+  <!-- 2 OVERVIEW -->
+  <section class="slide">
+    <h2><span class="num">01</span>프로젝트 한눈에</h2>
+    <div class="grid g2">
+      <div class="card">
+        <h3>목표</h3>
+        <p style="color:var(--ink);font-size:16px;line-height:1.5">Time-MMD 위에 <b style="color:var(--ink)">event annotation + cross-domain split + ROI 평가</b>를 얹어, 기존 multimodal 방법이 cross-domain에서 무너지는지 정량 입증</p>
+      </div>
+      <div class="card">
+        <h3>핵심 가설</h3>
+        <p style="color:var(--ink);font-size:16px;line-height:1.5">In-domain SOTA(VoT 등)의 <b style="color:var(--ink)">case-based retrieval</b>이 cross-domain에선 도움이 안 되거나 해롭다</p>
+      </div>
+    </div>
+    <ul style="margin-top:16px">
+      <li><b>기여</b> — ① 이벤트 차원 추가 ② cross-domain LODO split ③ ROI 기반 평가 ④ memorization 검증</li>
+      <li><b>구조</b> — 메인 연구(메커니즘 기반 예측) ↔ 본 데이터셋(그 motivation을 정량 입증)</li>
+    </ul>
+  </section>
+
+  <!-- 3 ENV -->
+  <section class="slide">
+    <h2><span class="num">02</span>개발 환경</h2>
+    <div class="grid g3">
+      <div class="card"><h3>런타임</h3><p class="big">Py 3.11</p><p>uv 가상환경 · 공용 .venv</p></div>
+      <div class="card"><h3>구조</h3><p class="big">umbrella</p><p>code/ 는 상위 폴더<br>git은 subproject 단위</p></div>
+      <div class="card"><h3>패키지</h3><p style="color:var(--ink);font-size:14px;line-height:1.7">data/TS · LLM · DL<br>(torch CPU, lightning)</p></div>
+    </div>
+    <div style="margin-top:14px">
+      <span class="pill">numpy / pandas / scikit-learn</span>
+      <span class="pill">matplotlib / jupyter</span>
+      <span class="pill">anthropic / openai / transformers / datasets</span>
+      <span class="pill">torch · lightning</span>
+    </div>
+    <div class="foot">머신 특성: uv는 <span class="mono">UV_LINK_MODE=copy</span> 필요 · 콘다 ass 환경 경고는 무시</div>
+  </section>
+
+  <!-- 4 SCOPE -->
+  <section class="slide">
+    <h2><span class="num">03</span>데이터 스코프 — Monthly 5개</h2>
+    <table>
+      <tr><th>도메인</th><th>OT 변수</th><th>기간</th><th>rows</th></tr>
+      <tr><td><b>Agriculture</b></td><td>가격</td><td>1990-01 ~ 2023-12</td><td>408</td></tr>
+      <tr><td><b>Economy</b></td><td>무역수지</td><td>1987-01 ~ 2024-03</td><td>447</td></tr>
+      <tr><td><b>Security</b></td><td>재난 보조금</td><td>1998-09 ~ 2024-05</td><td>309</td></tr>
+      <tr><td><b>SocialGood</b></td><td>실업률</td><td>1948-01 ~ 2024-04</td><td>916</td></tr>
+      <tr><td><b>Traffic</b></td><td>이동량</td><td>1970-01 ~ 2024-03</td><td>651</td></tr>
+    </table>
+    <ul style="margin-top:18px">
+      <li><b>Climate 제외</b> <span class="sub">— 실측 weekly. 설계가 monthly로 오분류한 것을 검증 단계에서 발견</span></li>
+      <li><b>LODO 1→4</b> <span class="sub">— 1개 학습 → 4개 평가 (Climate 빠지며 1→5에서 조정)</span></li>
+    </ul>
+  </section>
+
+  <!-- 5 PIPELINE -->
+  <section class="slide">
+    <h2><span class="num">04</span>데이터 파이프라인</h2>
+    <div class="flow">
+      <div class="step"><b>LOAD</b>numerical + text<br>(report·search)</div>
+      <span class="arrow">→</span>
+      <div class="step"><b>MATCH</b>텍스트→월<br>majority-overlap</div>
+      <span class="arrow">→</span>
+      <div class="step"><b>MERGE</b>fact/pred<br>별도 컬럼</div>
+      <span class="arrow">→</span>
+      <div class="step"><b>TRIM</b>공통 윈도우<br>(다변량 정렬)</div>
+      <span class="arrow">→</span>
+      <div class="step"><b>SAVE</b>data/processed/<br>{domain}_merged.csv</div>
+    </div>
+    <pre><span class="m"># 단일 / 전체</span>
+uv run python build_dataset.py <span class="a">--domain</span> Economy
+uv run python build_dataset.py <span class="a">--all</span></pre>
+    <ul style="margin-top:14px">
+      <li>도메인 차이는 <span class="mono">DOMAIN_CONFIG</span>의 <span class="mono">drop_cols</span>로 흡수</li>
+      <li>최종 스키마 <span class="mono sub">date · start/end · vars(OT) · report/search_text · report/search_pred</span></li>
+    </ul>
+  </section>
+
+  <!-- 6 ISSUES -->
+  <section class="slide">
+    <h2><span class="num">05</span>발견·수정한 데이터 이슈</h2>
+    <table>
+      <tr><th>이슈</th><th>처리</th></tr>
+      <tr><td>Climate가 실제 weekly (설계는 monthly)</td><td><span class="tag t-cut">제외</span> 6→5 도메인</td></tr>
+      <tr><td>텍스트 컬럼명 <span class="mono">pred</span> ✗ → <span class="mono">preds</span> ✓</td><td><span class="tag t-fix">수정</span></td></tr>
+      <tr><td>도메인별 중복 컬럼 (Date, Month…)</td><td><span class="tag t-fix">per-domain drop</span></td></tr>
+      <tr><td>Traffic 연도-경계 end_date 연도 누락 ×3</td><td><span class="tag t-fix">+1년 보정</span></td></tr>
+      <tr><td>Economy 연도 내림차순 정렬</td><td><span class="tag t-fix">시간순 정렬</span></td></tr>
+      <tr><td>다변량 변수 커버리지 불일치</td><td><span class="tag t-fix">공통 윈도우 trim</span></td></tr>
+      <tr><td>월 경계 텍스트 (두 달 걸침)</td><td><span class="tag t-fix">majority-overlap</span></td></tr>
+      <tr><td><b>Security report 통째로 빈 파일</b></td><td><span class="tag t-warn">search-only 확인</span></td></tr>
+    </table>
+    <div class="foot">대부분 <b style="color:var(--accent2)">Time-MMD 원본의 데이터 갭</b> — 우리 버그 아님. 검증 후 처리.</div>
+  </section>
+
+  <!-- 7 DELIVERABLES -->
+  <section class="slide">
+    <h2><span class="num">06</span>최종 산출물</h2>
+    <div class="grid g2">
+      <div>
+        <pre>EATF Dataset/
+├── build_dataset.py      <span class="m">모든 fix 반영</span>
+├── data/processed/       <span class="c">5개 CSV</span>
+├── notebooks/
+│   └── 01_eda.ipynb      <span class="m">실행 완료</span>
+├── MD_files/             <span class="m">설계 5개</span>
+├── README.md
+└── Time-MMD/             <span class="m">원본</span></pre>
+      </div>
+      <div class="grid" style="gap:12px">
+        <div class="card"><h3>통합 CSV</h3><p class="big">5 / 5</p><p>전 도메인 numeric NaN = 0</p></div>
+        <div class="card"><h3>총 row</h3><p class="big">2,731</p><p>Agri 408 · Econ 447 · Sec 309 · Social 916 · Traffic 651</p></div>
+      </div>
+    </div>
+    <div class="foot">설계 문서 5개 · README · EDA 노트북 모두 최신 상태로 동기화</div>
+  </section>
+
+  <!-- 8 EDA -->
+  <section class="slide">
+    <h2><span class="num">07</span>EDA 핵심 발견</h2>
+    <ul>
+      <li><b>텍스트 sparsity 편차 큼</b> — report no-info 22.8% ~ <span style="color:var(--danger)">100%(Security)</span>, search 0% ~ 41.9% <span class="sub">→ cross-domain transfer 시 noise 요인</span></li>
+      <li><b>Security = search-only</b> — report 모달리티 부재 (원본 빈 파일). "Report+Search 둘 다" 가정이 Security엔 불성립</li>
+      <li><b>변수 구성 비대칭</b> — Agriculture/Economy만 다변량, 나머지 OT 단변량 <span class="sub">→ 공정 비교 위해 univariate 통일 옵션 고려</span></li>
+      <li><b>공통 시기</b> — Security가 최단(1998-09~) <span class="sub">→ cross-domain 평가 기간 후보</span></li>
+    </ul>
+    <div class="foot">상세 plot: notebooks/01_eda.ipynb (시계열 · 텍스트 length · 가용성 · cross-domain overlay)</div>
+  </section>
+
+  <!-- 9 NEXT -->
+  <section class="slide">
+    <h2><span class="num">08</span>다음 단계 — Phase 2 파일럿</h2>
+    <ul>
+      <li><b>베이스라인</b> — PatchTST + MM-TSFlib 셋업</li>
+      <li><b>LODO 1쌍</b> — Economy → Agriculture로 cross-domain gap 빠른 검증</li>
+      <li><b>측정</b> — Overall MSE + ROI 후보 구간 MSE</li>
+      <li><b>판단</b> — gap 보이면 go, 안 보이면 설계 재검토 (no-go)</li>
+    </ul>
+    <div class="grid g2" style="margin-top:18px">
+      <div class="card"><h3>진입 전 결정사항</h3><p style="color:var(--ink)">Security search-only를 평가 설계에 반영하는 방식</p></div>
+      <div class="card"><h3>이후</h3><p style="color:var(--ink)">ROI 라벨링(LLM+CPD) → 베이스라인 전체 평가 → 분석/작성</p></div>
+    </div>
+  </section>
+
+</div>
+
+<div id="dots"></div>
+<div id="hud">1 / 9</div>
+<div id="hint">스크롤 · 휠 · 점 클릭</div>
+
+<script>
+  const stage=document.getElementById('stage');
+  const slides=[...document.querySelectorAll('.slide')];
+  const dots=document.getElementById('dots');
+  const hud=document.getElementById('hud');
+  const bar=document.getElementById('bar');
+  slides.forEach((s)=>{const d=document.createElement('div');d.className='dot';d.onclick=()=>s.scrollIntoView({behavior:'smooth'});dots.appendChild(d)});
+  const dotEls=[...dots.children];
+  let cur=0;
+  // 현재 보이는 슬라이드 추적 → 점/카운터/진행바 갱신
+  const io=new IntersectionObserver(es=>{
+    es.forEach(e=>{ if(e.isIntersecting){
+      cur=slides.indexOf(e.target);
+      dotEls.forEach((d,j)=>d.classList.toggle('on',j===cur));
+      hud.textContent=(cur+1)+' / '+slides.length;
+    }});
+  },{root:stage,threshold:0.55});
+  slides.forEach(s=>io.observe(s));
+  stage.addEventListener('scroll',()=>{
+    const max=stage.scrollHeight-stage.clientHeight;
+    bar.style.width=(max>0?stage.scrollTop/max*100:0)+'%';
+  },{passive:true});
+  // 키보드(↑/↓/PgUp/PgDn/Space/Home/End)로도 이동
+  document.addEventListener('keydown',e=>{
+    if(['ArrowDown','PageDown',' '].includes(e.key)){e.preventDefault();slides[Math.min(slides.length-1,cur+1)].scrollIntoView({behavior:'smooth'})}
+    if(['ArrowUp','PageUp'].includes(e.key)){e.preventDefault();slides[Math.max(0,cur-1)].scrollIntoView({behavior:'smooth'})}
+    if(e.key==='Home')slides[0].scrollIntoView({behavior:'smooth'});
+    if(e.key==='End')slides[slides.length-1].scrollIntoView({behavior:'smooth'});
+  });
+</script>
+</body>
+</html>
