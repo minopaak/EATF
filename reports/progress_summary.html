@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>EATF Dataset — Phase 1 진행 정리</title>
+<title>EATF Dataset — 왜·어떻게·무엇을</title>
 <style>
   :root{
     --bg:#ffffff; --panel:#f8fafc; --panel2:#f1f5f9;
@@ -41,7 +41,7 @@
   .card .big{font-size:30px;font-weight:800;color:var(--ink)}
 
   table{width:100%;border-collapse:collapse;margin-top:8px;font-size:16px}
-  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line)}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
   th{color:var(--accent);font-weight:700;font-size:13px;letter-spacing:.04em;text-transform:uppercase}
   td b{color:var(--ink)}
   tr:last-child td{border-bottom:none}
@@ -57,7 +57,7 @@
 
   .flow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px}
   .step{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 16px;font-size:15px}
-  .step b{color:#fff;display:block;font-size:13px;color:var(--accent)}
+  .step b{display:block;font-size:13px;color:var(--accent)}
   .arrow{color:var(--muted);font-size:20px}
 
   .pill{display:inline-block;background:var(--panel2);border:1px solid var(--line);
@@ -80,75 +80,135 @@
   <!-- 1 TITLE -->
   <section class="slide active">
     <div class="kicker">Cross-Domain Event-Aware TS Benchmark</div>
-    <h1>EATF Dataset<br><span style="color:var(--accent)">Phase 1</span> 진행 정리</h1>
-    <p class="lead">Time-MMD 기반 이벤트 인지형 시계열 예측 벤치마크 구축<br>데이터 통합 · 검증 · EDA 완료</p>
-    <div class="foot">데이터 통합(Phase 1) 완료 · 5개 monthly 도메인 · Phase 2 파일럿 대기</div>
+    <h1>EATF Dataset<br><span style="color:var(--accent)">왜 · 어떻게 · 무엇을</span> 만들었나</h1>
+    <p class="lead">Multimodal 시계열 모델이 "이벤트를 이해"하는지 진단할 수 있는 벤치마크.<br>
+    이해를 세 조건 (a) Locality · (b) Generalization · (c) Reasoning over retrieval 로 정의하고, 각각을 측정 가능한 결과물로 만든다.</p>
+    <div class="foot">Phase 1 데이터 구축 + 파이프라인 검증 완료 · Phase 3 ROI 라벨링 대기</div>
   </section>
 
-  <!-- 2 OVERVIEW -->
+  <!-- 2 WHY -->
   <section class="slide">
-    <h2><span class="num">01</span>프로젝트 한눈에</h2>
+    <h2><span class="num">01</span>왜 만드나 — 진짜 이해인가, in-distribution shortcut인가</h2>
+    <p class="lead" style="margin-bottom:24px">VoT, Time-LLM 등 최근 multimodal 모델이 in-domain에서 unimodal을 일관되게 이긴다. 그러나 두 가설이 in-domain 관측만으로는 구분되지 않는다.</p>
     <div class="grid g2">
       <div class="card">
-        <h3>목표</h3>
-        <p style="color:var(--ink);font-size:16px;line-height:1.5">Time-MMD 위에 <b style="color:var(--ink)">event annotation + cross-domain split + ROI 평가</b>를 얹어, 기존 multimodal 방법이 cross-domain에서 무너지는지 정량 입증</p>
+        <h3>가설 A — 진짜 이해</h3>
+        <p style="color:var(--ink);font-size:15px;line-height:1.6">이벤트의 의미를 도메인-agnostic하게 표현. 학습 시 안 본 도메인에서도 텍스트가 도움이 됨.</p>
       </div>
       <div class="card">
-        <h3>핵심 가설</h3>
-        <p style="color:var(--ink);font-size:16px;line-height:1.5">In-domain SOTA(VoT 등)의 <b style="color:var(--ink)">case-based retrieval</b>이 cross-domain에선 도움이 안 되거나 해롭다</p>
+        <h3>가설 B — in-distribution shortcut</h3>
+        <p style="color:var(--ink);font-size:15px;line-height:1.6">학습 corpus의 (텍스트, 시계열) co-occurrence에 의존하는 mapping. 분포 안에선 잘 작동, 밖에선 보장 없음.</p>
       </div>
     </div>
-    <ul style="margin-top:16px">
-      <li><b>기여</b> — ① 이벤트 차원 추가 ② cross-domain LODO split ③ ROI 기반 평가 ④ memorization 검증</li>
-      <li><b>구조</b> — 메인 연구(메커니즘 기반 예측) ↔ 본 데이터셋(그 motivation을 정량 입증)</li>
+    <ul style="margin-top:18px">
+      <li><b>핵심 문제</b> — 두 가설은 in-domain 평가에선 관측상 동일. 분포 밖에서만 갈라진다.</li>
+      <li><b>현 평가의 한계</b> — Time-MMD, CiK, VoT 평가 어느 것도 이 분리를 강제하지 않음.</li>
+      <li><b>그래서</b> — 두 가설을 구분할 수 있는 진단 도구가 필요하다.</li>
     </ul>
   </section>
 
-  <!-- 3 ENV -->
+  <!-- 3 DEFINITION -->
   <section class="slide">
-    <h2><span class="num">02</span>개발 환경</h2>
+    <h2><span class="num">02</span>이벤트 이해의 정의 — 세 조건 (a)(b)(c)</h2>
+    <p class="lead" style="margin-bottom:24px">진짜 이해라면 다음 셋을 모두 만족해야 한다. 셋 중 하나라도 실패하면 in-distribution shortcut에 가깝다.</p>
     <div class="grid g3">
-      <div class="card"><h3>런타임</h3><p class="big">Py 3.11</p><p>uv 가상환경 · 공용 .venv</p></div>
-      <div class="card"><h3>구조</h3><p class="big">umbrella</p><p>code/ 는 상위 폴더<br>git은 subproject 단위</p></div>
-      <div class="card"><h3>패키지</h3><p style="color:var(--ink);font-size:14px;line-height:1.7">data/TS · LLM · DL<br>(torch CPU, lightning)</p></div>
+      <div class="card">
+        <h3>(a) Locality</h3>
+        <p style="color:var(--ink);font-size:14px;line-height:1.55">이벤트가 영향을 주는 구간(ROI)을 식별. "어디서" 이벤트가 작동하는지 안다. 전 구간 평균 MSE만으로는 가려진다.</p>
+      </div>
+      <div class="card">
+        <h3>(b) Generalization</h3>
+        <p style="color:var(--ink);font-size:14px;line-height:1.55">학습 시 안 본 도메인의 이벤트에도 텍스트가 도움이 된다. 도메인-agnostic 표현이 있다.</p>
+      </div>
+      <div class="card">
+        <h3>(c) Reasoning over retrieval</h3>
+        <p style="color:var(--ink);font-size:14px;line-height:1.55">시계열 perturbation에도 텍스트 우위가 살아남는다. 학습 corpus 직접 retrieval이 아니다.</p>
+      </div>
     </div>
-    <div style="margin-top:14px">
-      <span class="pill">numpy / pandas / scikit-learn</span>
-      <span class="pill">matplotlib / jupyter</span>
-      <span class="pill">anthropic / openai / transformers / datasets</span>
-      <span class="pill">torch · lightning</span>
-    </div>
-    <div class="foot">머신 특성: uv는 <span class="mono">UV_LINK_MODE=copy</span> 필요 · 콘다 ass 환경 경고는 무시</div>
+    <div class="foot">세 조건의 conjunction. 모두 통과해야 "이해"라고 부른다.</div>
   </section>
 
-  <!-- 4 SCOPE -->
+  <!-- 4 CURRENT METHODS -->
   <section class="slide">
-    <h2><span class="num">03</span>데이터 스코프 — Monthly 5개</h2>
+    <h2><span class="num">03</span>현재 방법들은 무엇을 학습하나</h2>
     <table>
-      <tr><th>도메인</th><th>OT 변수</th><th>기간</th><th>rows</th></tr>
-      <tr><td><b>Agriculture</b></td><td>가격</td><td>1990-01 ~ 2023-12</td><td>408</td></tr>
-      <tr><td><b>Economy</b></td><td>무역수지</td><td>1987-01 ~ 2024-03</td><td>447</td></tr>
-      <tr><td><b>Security</b></td><td>재난 보조금</td><td>1998-09 ~ 2024-05</td><td>309</td></tr>
-      <tr><td><b>SocialGood</b></td><td>실업률</td><td>1948-01 ~ 2024-04</td><td>916</td></tr>
-      <tr><td><b>Traffic</b></td><td>이동량</td><td>1970-01 ~ 2024-03</td><td>651</td></tr>
+      <tr><th>접근</th><th>대표</th><th>메커니즘</th><th>한계</th></tr>
+      <tr>
+        <td><b>Case-based retrieval</b></td>
+        <td>VoT-HIC, FNF</td>
+        <td>(텍스트, 시계열 trajectory) KB → 유사 case retrieve</td>
+        <td>(텍스트, 시계열) 매핑 자체가 도메인 의존</td>
+      </tr>
+      <tr>
+        <td><b>LLM-conditioned</b></td>
+        <td>Time-LLM</td>
+        <td>사전학습 LLM 표현으로 시계열 모델 조건화</td>
+        <td>LLM ↔ 시계열 mapping은 학습 corpus에서 end-to-end</td>
+      </tr>
+      <tr>
+        <td><b>Architectural fusion</b></td>
+        <td>MM-TSFlib, DualTime</td>
+        <td>cross-attention 등으로 결합</td>
+        <td>fusion 패턴 자체가 학습 분포 의존</td>
+      </tr>
+    </table>
+    <div class="foot">셋 모두 학습 corpus의 텍스트-시계열 co-occurrence 위에서 동작 → <b style="color:var(--warn)">in-distribution shortcut</b>. 분포 밖 보장 없음. "암기"가 아니라 분포 의존적 mapping의 학습.</div>
+  </section>
+
+  <!-- 5 OUR ANSWER -->
+  <section class="slide">
+    <h2><span class="num">04</span>그래서 만든 것 — 진단 ↔ 결과물 1:1 매핑</h2>
+    <p class="lead" style="margin-bottom:20px">EATF는 (a)(b)(c)를 자연 텍스트 위에서 동시에 측정 가능하게 만든 진단 도구. 각 진단은 구체적 결과물에 대응된다.</p>
+    <table>
+      <tr><th>진단</th><th>결과물</th><th>측정 metric</th></tr>
+      <tr>
+        <td><b>(a) Locality</b></td>
+        <td>ROI 라벨<br><span class="sub">LLM duration → CPD validation (IoU≥0.5) → human adjudication</span></td>
+        <td>ROI MSE vs non-ROI MSE</td>
+      </tr>
+      <tr>
+        <td><b>(b) Generalization</b></td>
+        <td>text-knowledge-transfer protocol<br><span class="sub">1→4, target TS 고정 · source 텍스트만 swap</span></td>
+        <td>Cross-domain degradation ratio</td>
+      </tr>
+      <tr>
+        <td><b>(c) Reasoning over retrieval</b></td>
+        <td>memorization-controlled splits<br><span class="sub">CiK 방식 clean / additive-noise variants</span></td>
+        <td>clean ↔ noise gap</td>
+      </tr>
+    </table>
+    <div class="foot">셋 모두 통과해야 "이해". 어느 하나라도 떨어지면 그 모델은 in-distribution shortcut에 가깝다.</div>
+  </section>
+
+  <!-- 6 DATA -->
+  <section class="slide">
+    <h2><span class="num">05</span>데이터 — 5 monthly 도메인, 텍스트 시대로 trim</h2>
+    <table>
+      <tr><th>도메인</th><th>OT 변수</th><th>텍스트 시대</th><th>rows</th><th>변경</th></tr>
+      <tr><td><b>Agriculture</b></td><td>가격</td><td>1980-10 ~ 2024-04</td><td>523</td><td><span class="tag t-fix">532→523</span></td></tr>
+      <tr><td><b>Economy</b></td><td>무역수지</td><td>1987-01 ~ 2024-03</td><td>447</td><td>변화 없음</td></tr>
+      <tr><td><b>Security</b></td><td>재난 보조금</td><td>1998-09 ~ 2024-05</td><td>309</td><td>변화 없음</td></tr>
+      <tr><td><b>SocialGood</b></td><td>실업률</td><td>1980-01 ~ 2024-05</td><td>533</td><td><span class="tag t-cut">924→533</span></td></tr>
+      <tr><td><b>Traffic</b></td><td>이동량</td><td>1980-01 ~ 2024-03</td><td>531</td><td><span class="tag t-fix">651→531</span></td></tr>
     </table>
     <ul style="margin-top:18px">
-      <li><b>Climate 제외</b> <span class="sub">— 실측 weekly. 설계가 monthly로 오분류한 것을 검증 단계에서 발견</span></li>
-      <li><b>LODO 1→4</b> <span class="sub">— 1개 학습 → 4개 평가 (Climate 빠지며 1→5에서 조정)</span></li>
+      <li><b>왜 trim하나</b> — 이벤트-aware 벤치마크는 텍스트가 있는 구간에서만 의미. 텍스트 없는 앞 구간(SocialGood 1948~1980 등) 제거 → cross-domain 비교 가능성 ↑.</li>
+      <li><b>Climate 제외</b> <span class="sub">— 실측 weekly. monthly 5개로 확정.</span></li>
+      <li><b>LODO 1→4</b> <span class="sub">— 1개 학습 → 4개 평가 (어려운 셋업).</span></li>
     </ul>
   </section>
 
-  <!-- 5 PIPELINE -->
+  <!-- 7 PIPELINE -->
   <section class="slide">
-    <h2><span class="num">04</span>데이터 파이프라인</h2>
+    <h2><span class="num">06</span>데이터 파이프라인</h2>
     <div class="flow">
       <div class="step"><b>LOAD</b>numerical + text<br>(report·search)</div>
       <span class="arrow">→</span>
       <div class="step"><b>MATCH</b>텍스트→월<br>majority-overlap</div>
       <span class="arrow">→</span>
-      <div class="step"><b>MERGE</b>fact/pred<br>별도 컬럼</div>
+      <div class="step"><b>MERGE</b>fact / preds<br>별도 컬럼</div>
       <span class="arrow">→</span>
-      <div class="step"><b>TRIM</b>공통 윈도우<br>(다변량 정렬)</div>
+      <div class="step"><b>TRIM</b>텍스트 시대<br>trim_to_text_coverage</div>
       <span class="arrow">→</span>
       <div class="step"><b>SAVE</b>data/processed/<br>{domain}_merged.csv</div>
     </div>
@@ -156,75 +216,48 @@
 uv run python build_dataset.py <span class="a">--domain</span> Economy
 uv run python build_dataset.py <span class="a">--all</span></pre>
     <ul style="margin-top:14px">
-      <li>도메인 차이는 <span class="mono">DOMAIN_CONFIG</span>의 <span class="mono">drop_cols</span>로 흡수</li>
-      <li>최종 스키마 <span class="mono sub">date · start/end · vars(OT) · report/search_text · report/search_pred</span></li>
+      <li>도메인별 차이는 <span class="mono">DOMAIN_CONFIG</span>의 <span class="mono">drop_cols</span>로 흡수.</li>
+      <li>최종 스키마 <span class="mono sub">date · start/end · vars(OT) · report/search_text · report/search_pred</span>.</li>
+      <li>Time-MMD upstream 이슈 자동 보정 (Traffic 연도-경계 end_date · Economy 내림차순 정렬 등).</li>
     </ul>
   </section>
 
-  <!-- 6 ISSUES -->
+  <!-- 8 VALIDATION -->
   <section class="slide">
-    <h2><span class="num">05</span>발견·수정한 데이터 이슈</h2>
-    <table>
-      <tr><th>이슈</th><th>처리</th></tr>
-      <tr><td>Climate가 실제 weekly (설계는 monthly)</td><td><span class="tag t-cut">제외</span> 6→5 도메인</td></tr>
-      <tr><td>텍스트 컬럼명 <span class="mono">pred</span> ✗ → <span class="mono">preds</span> ✓</td><td><span class="tag t-fix">수정</span></td></tr>
-      <tr><td>도메인별 중복 컬럼 (Date, Month…)</td><td><span class="tag t-fix">per-domain drop</span></td></tr>
-      <tr><td>Traffic 연도-경계 end_date 연도 누락 ×3</td><td><span class="tag t-fix">+1년 보정</span></td></tr>
-      <tr><td>Economy 연도 내림차순 정렬</td><td><span class="tag t-fix">시간순 정렬</span></td></tr>
-      <tr><td>다변량 변수 커버리지 불일치</td><td><span class="tag t-fix">공통 윈도우 trim</span></td></tr>
-      <tr><td>월 경계 텍스트 (두 달 걸침)</td><td><span class="tag t-fix">majority-overlap</span></td></tr>
-      <tr><td><b>Security report 통째로 빈 파일</b></td><td><span class="tag t-warn">search-only 확인</span></td></tr>
-    </table>
-    <div class="foot">대부분 <b style="color:var(--accent2)">Time-MMD 원본의 데이터 갭</b> — 우리 버그 아님. 검증 후 처리.</div>
+    <h2><span class="num">07</span>파이프라인 검증 — Time-MMD 베이스라인 재현</h2>
+    <p class="lead" style="margin-bottom:20px">우리 코드를 MM-TSFlib의 자기 데이터 CSV에 그대로 돌려 논문 수치 재현 시도. 결과는 명확하다.</p>
+    <ul>
+      <li><b>Traffic ✅</b> — DLinear / PatchTST 모든 horizon에서 논문과 정확 일치 <span class="sub">(0.35 / 0.21 등).</span></li>
+      <li><b>SocialGood ✅</b> — 우리 데이터에서도 MM 데이터에서도 모두 일치 <span class="sub">(데이터 vintage 무관).</span></li>
+      <li><b>Economy ✅ (조건부)</b> — 우리는 시간순 정렬이라 0.27, MM의 원본 내림차순 정렬을 그대로 따라하면 논문값 0.02 재현. <b style="color:var(--warn)">→ 논문 Economy 0.02는 미정렬 input artifact</b>로 확정.</li>
+    </ul>
+    <div class="foot">결론: 우리 파이프라인은 정확. 잔여 차이는 데이터 vintage(과거 확장 여부) · 정렬 정책 · 다채널 평가 metric 차이로 설명 가능. 우리 수치가 baseline의 "깨끗한" 버전.</div>
   </section>
 
-  <!-- 7 DELIVERABLES -->
+  <!-- 9 STATUS / NEXT -->
   <section class="slide">
-    <h2><span class="num">06</span>최종 산출물</h2>
-    <div class="grid g2">
-      <div>
-        <pre>EATF Dataset/
-├── build_dataset.py      <span class="m">모든 fix 반영</span>
-├── data/processed/       <span class="c">5개 CSV</span>
-├── notebooks/
-│   └── 01_eda.ipynb      <span class="m">실행 완료</span>
-├── MD_files/             <span class="m">설계 5개</span>
-├── README.md
-└── Time-MMD/             <span class="m">원본</span></pre>
+    <h2><span class="num">08</span>현재 상태 · 다음 단계</h2>
+    <div class="grid g2" style="margin-bottom:18px">
+      <div class="card">
+        <h3>완료</h3>
+        <ul style="font-size:15px;gap:8px">
+          <li>5 도메인 CSV 통합 + 텍스트 시대 trim</li>
+          <li>TS-only baseline (DLinear, PatchTST) 측정</li>
+          <li>파이프라인 정합성 검증 (vs Time-MMD)</li>
+          <li>설계 문서 5개 · README · 진행 정리</li>
+          <li>GitHub 공개 (<span class="mono">minopaak/EATF</span>)</li>
+        </ul>
       </div>
-      <div class="grid" style="gap:12px">
-        <div class="card"><h3>통합 CSV</h3><p class="big">5 / 5</p><p>전 도메인 numeric NaN = 0</p></div>
-        <div class="card"><h3>총 row</h3><p class="big">2,731</p><p>Agri 408 · Econ 447 · Sec 309 · Social 916 · Traffic 651</p></div>
+      <div class="card">
+        <h3>다음 — Phase 3</h3>
+        <ul style="font-size:15px;gap:8px">
+          <li>ROI 라벨링 파이프라인 (LLM + CPD + human)</li>
+          <li>이후 Phase 5: multimodal baseline 통합</li>
+          <li>그 위에서 (a)(b)(c) 동시 측정 실험</li>
+        </ul>
       </div>
     </div>
-    <div class="foot">설계 문서 5개 · README · EDA 노트북 모두 최신 상태로 동기화</div>
-  </section>
-
-  <!-- 8 EDA -->
-  <section class="slide">
-    <h2><span class="num">07</span>EDA 핵심 발견</h2>
-    <ul>
-      <li><b>텍스트 sparsity 편차 큼</b> — report no-info 22.8% ~ <span style="color:var(--danger)">100%(Security)</span>, search 0% ~ 41.9% <span class="sub">→ cross-domain transfer 시 noise 요인</span></li>
-      <li><b>Security = search-only</b> — report 모달리티 부재 (원본 빈 파일). "Report+Search 둘 다" 가정이 Security엔 불성립</li>
-      <li><b>변수 구성 비대칭</b> — Agriculture/Economy만 다변량, 나머지 OT 단변량 <span class="sub">→ 공정 비교 위해 univariate 통일 옵션 고려</span></li>
-      <li><b>공통 시기</b> — Security가 최단(1998-09~) <span class="sub">→ cross-domain 평가 기간 후보</span></li>
-    </ul>
-    <div class="foot">상세 plot: notebooks/01_eda.ipynb (시계열 · 텍스트 length · 가용성 · cross-domain overlay)</div>
-  </section>
-
-  <!-- 9 NEXT -->
-  <section class="slide">
-    <h2><span class="num">08</span>다음 단계 — Phase 2 파일럿</h2>
-    <ul>
-      <li><b>베이스라인</b> — PatchTST + MM-TSFlib 셋업</li>
-      <li><b>LODO 1쌍</b> — Economy → Agriculture로 cross-domain gap 빠른 검증</li>
-      <li><b>측정</b> — Overall MSE + ROI 후보 구간 MSE</li>
-      <li><b>판단</b> — gap 보이면 go, 안 보이면 설계 재검토 (no-go)</li>
-    </ul>
-    <div class="grid g2" style="margin-top:18px">
-      <div class="card"><h3>진입 전 결정사항</h3><p style="color:var(--ink)">Security search-only를 평가 설계에 반영하는 방식</p></div>
-      <div class="card"><h3>이후</h3><p style="color:var(--ink)">ROI 라벨링(LLM+CPD) → 베이스라인 전체 평가 → 분석/작성</p></div>
-    </div>
+    <div class="foot">TS-swap LODO는 headline 아님 — 도메인 간 시계열 동역학 자체가 다른 것이라 trivial. 헤드라인 실험은 multimodal × text-knowledge-transfer.</div>
   </section>
 
 </div>
@@ -242,7 +275,6 @@ uv run python build_dataset.py <span class="a">--all</span></pre>
   slides.forEach((s)=>{const d=document.createElement('div');d.className='dot';d.onclick=()=>s.scrollIntoView({behavior:'smooth'});dots.appendChild(d)});
   const dotEls=[...dots.children];
   let cur=0;
-  // 현재 보이는 슬라이드 추적 → 점/카운터/진행바 갱신
   const io=new IntersectionObserver(es=>{
     es.forEach(e=>{ if(e.isIntersecting){
       cur=slides.indexOf(e.target);
@@ -255,7 +287,6 @@ uv run python build_dataset.py <span class="a">--all</span></pre>
     const max=stage.scrollHeight-stage.clientHeight;
     bar.style.width=(max>0?stage.scrollTop/max*100:0)+'%';
   },{passive:true});
-  // 키보드(↑/↓/PgUp/PgDn/Space/Home/End)로도 이동
   document.addEventListener('keydown',e=>{
     if(['ArrowDown','PageDown',' '].includes(e.key)){e.preventDefault();slides[Math.min(slides.length-1,cur+1)].scrollIntoView({behavior:'smooth'})}
     if(['ArrowUp','PageUp'].includes(e.key)){e.preventDefault();slides[Math.max(0,cur-1)].scrollIntoView({behavior:'smooth'})}
