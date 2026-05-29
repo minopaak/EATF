@@ -45,6 +45,7 @@
   th{color:var(--accent);font-weight:700;font-size:13px;letter-spacing:.04em;text-transform:uppercase}
   td b{color:var(--ink)}
   tr:last-child td{border-bottom:none}
+  .center{text-align:center}
   .tag{display:inline-block;font-size:12px;padding:2px 8px;border-radius:6px;font-weight:700}
   .t-fix{background:rgba(52,211,153,.15);color:var(--accent2)}
   .t-warn{background:rgba(251,191,36,.15);color:var(--warn)}
@@ -62,6 +63,17 @@
 
   .pill{display:inline-block;background:var(--panel2);border:1px solid var(--line);
         border-radius:999px;padding:6px 14px;font-size:14px;margin:4px 6px 0 0;color:var(--ink)}
+
+  .quote{background:linear-gradient(135deg,#eff6ff,#ecfeff);
+         border-left:4px solid var(--accent);border-radius:8px;
+         padding:24px 28px;margin:28px 0;font-size:22px;line-height:1.6;color:var(--ink);font-weight:600}
+  .quote .small{display:block;margin-top:10px;font-size:14px;color:var(--muted);font-weight:400}
+
+  .yn{display:inline-block;width:22px;height:22px;border-radius:50%;text-align:center;line-height:22px;font-size:14px;font-weight:700}
+  .yn.ok{background:rgba(52,211,153,.18);color:var(--accent2)}
+  .yn.no{background:rgba(248,113,113,.18);color:var(--danger)}
+  .yn.partial{background:rgba(251,191,36,.18);color:var(--warn)}
+  .ours td{background:rgba(2,132,199,.05)}
 
   /* chrome */
   #bar{position:fixed;top:0;left:0;height:3px;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .3s}
@@ -86,46 +98,38 @@
     <div class="foot">Phase 1 데이터 구축 + 파이프라인 검증 완료 · Phase 3 ROI 라벨링 대기</div>
   </section>
 
-  <!-- 2 WHY -->
+  <!-- 2 REFRAME — 한 단계 앞의 질문 -->
   <section class="slide">
-    <h2><span class="num">01</span>왜 만드나 — 진짜 이해인가, in-distribution shortcut인가</h2>
-    <p class="lead" style="margin-bottom:24px">VoT, Time-LLM 등 최근 multimodal 모델이 in-domain에서 unimodal을 일관되게 이긴다. 그러나 두 가설이 in-domain 관측만으로는 구분되지 않는다.</p>
-    <div class="grid g2">
-      <div class="card">
-        <h3>가설 A — 진짜 이해</h3>
-        <p style="color:var(--ink);font-size:15px;line-height:1.6">이벤트의 의미를 도메인-agnostic하게 표현. 학습 시 안 본 도메인에서도 텍스트가 도움이 됨.</p>
-      </div>
-      <div class="card">
-        <h3>가설 B — in-distribution shortcut</h3>
-        <p style="color:var(--ink);font-size:15px;line-height:1.6">학습 corpus의 (텍스트, 시계열) co-occurrence에 의존하는 mapping. 분포 안에선 잘 작동, 밖에선 보장 없음.</p>
-      </div>
+    <div class="kicker">Why</div>
+    <h2><span class="num">01</span>한 단계 앞의 질문</h2>
+    <p class="lead">기존 연구는 보였다 — multimodal 시계열 모델이 in-domain에서 unimodal보다 잘한다 (VoT, Time-LLM, MM-TSFlib 등).</p>
+    <div class="quote">
+      우리가 답하고 싶은 질문은 그 한 단계 앞에 있다.<br>
+      <span style="color:var(--accent)">모델이 이벤트를 이해한다는 게 무엇을 의미하는가? 그리고 현재 방법들은 어디까지 와 있는가?</span>
+      <span class="small">"잘한다"는 결과를 넘어, 그게 진짜 이해인지 다른 무엇인지부터 물어야 한다.</span>
     </div>
-    <ul style="margin-top:18px">
-      <li><b>핵심 문제</b> — 두 가설은 in-domain 평가에선 관측상 동일. 분포 밖에서만 갈라진다.</li>
-      <li><b>현 평가의 한계</b> — Time-MMD, CiK, VoT 평가 어느 것도 이 분리를 강제하지 않음.</li>
-      <li><b>그래서</b> — 두 가설을 구분할 수 있는 진단 도구가 필요하다.</li>
-    </ul>
+    <div class="foot">이 두 질문이 본 프로젝트 전체의 출발점이다. 아래 슬라이드들은 각각 (정의) → (현재 상태) → (왜 안 보이나) → (그래서 우리가 만든 것) 순서로 답한다.</div>
   </section>
 
   <!-- 3 DEFINITION -->
   <section class="slide">
-    <h2><span class="num">02</span>이벤트 이해의 정의 — 세 조건 (a)(b)(c)</h2>
-    <p class="lead" style="margin-bottom:24px">진짜 이해라면 다음 셋을 모두 만족해야 한다. 셋 중 하나라도 실패하면 in-distribution shortcut에 가깝다.</p>
+    <h2><span class="num">02</span>이벤트 이해를 어떻게 정의할 것인가</h2>
+    <p class="lead" style="margin-bottom:24px">세 조건의 conjunction으로 정의한다. 모두 만족해야 "이해"라고 부른다.</p>
     <div class="grid g3">
       <div class="card">
         <h3>(a) Locality</h3>
-        <p style="color:var(--ink);font-size:14px;line-height:1.55">이벤트가 영향을 주는 구간(ROI)을 식별. "어디서" 이벤트가 작동하는지 안다. 전 구간 평균 MSE만으로는 가려진다.</p>
+        <p style="color:var(--ink);font-size:14px;line-height:1.55">이벤트가 시계열에 영향을 주는 구간(ROI)을 식별할 수 있어야 한다. 전 구간 평균 MSE만 줄이는 모델은 "어디서" 이벤트가 작동하는지 모른 채 평균만 맞춘 것.</p>
       </div>
       <div class="card">
         <h3>(b) Generalization</h3>
-        <p style="color:var(--ink);font-size:14px;line-height:1.55">학습 시 안 본 도메인의 이벤트에도 텍스트가 도움이 된다. 도메인-agnostic 표현이 있다.</p>
+        <p style="color:var(--ink);font-size:14px;line-height:1.55">학습 시 본 (텍스트, 시계열) 쌍의 표면 패턴이 아니라, 이벤트가 어느 변수에 어떤 방식으로 작용하는지에 대한 표현이 있어야 한다. 안 본 도메인의 이벤트에도 텍스트가 도움.</p>
       </div>
       <div class="card">
         <h3>(c) Reasoning over retrieval</h3>
-        <p style="color:var(--ink);font-size:14px;line-height:1.55">시계열 perturbation에도 텍스트 우위가 살아남는다. 학습 corpus 직접 retrieval이 아니다.</p>
+        <p style="color:var(--ink);font-size:14px;line-height:1.55">시계열 수치에 작은 perturbation을 가해도 텍스트로 얻은 우위가 살아남아야 한다. 학습 corpus 직접 retrieval은 perturbation을 못 견딘다.</p>
       </div>
     </div>
-    <div class="foot">세 조건의 conjunction. 모두 통과해야 "이해"라고 부른다.</div>
+    <div class="foot">셋 중 하나라도 떨어지면 그 모델은 "이해"가 아니다. 셋 모두를 통과해야 도메인-agnostic 이벤트 표현을 학습했다고 주장할 수 있다.</div>
   </section>
 
   <!-- 4 CURRENT METHODS -->
@@ -152,18 +156,62 @@
         <td>fusion 패턴 자체가 학습 분포 의존</td>
       </tr>
     </table>
-    <div class="foot">셋 모두 학습 corpus의 텍스트-시계열 co-occurrence 위에서 동작 → <b style="color:var(--warn)">in-distribution shortcut</b>. 분포 밖 보장 없음. "암기"가 아니라 분포 의존적 mapping의 학습.</div>
+    <div class="quote" style="margin:20px 0 8px">
+      셋 모두 학습 corpus의 텍스트-시계열 co-occurrence 위에서 동작한다.<br>
+      이를 "암기"로 부르면 부정확하다. 더 정확한 이름은
+      <span style="color:var(--accent)">in-distribution shortcut</span> — 학습 분포 안에선 잘 작동하지만 밖으론 보장이 없는 mapping.
+    </div>
+    <div class="foot">즉 현재 multimodal 시계열 모델들은 이벤트의 의미를 도메인-agnostic하게 표현하는 메커니즘을 갖고 있지 않다.</div>
   </section>
 
-  <!-- 5 OUR ANSWER -->
+  <!-- 5 WHY INVISIBLE + EXISTING BENCHMARKS -->
   <section class="slide">
-    <h2><span class="num">04</span>그래서 만든 것 — 진단 ↔ 결과물 1:1 매핑</h2>
-    <p class="lead" style="margin-bottom:20px">EATF는 (a)(b)(c)를 자연 텍스트 위에서 동시에 측정 가능하게 만든 진단 도구. 각 진단은 구체적 결과물에 대응된다.</p>
+    <h2><span class="num">04</span>왜 in-domain 평가로는 안 잡히는가</h2>
+    <p class="lead" style="margin-bottom:20px"><b style="color:var(--ink)">진짜 이해</b>와 <b style="color:var(--warn)">in-distribution shortcut</b>은 학습 분포 안에선 관측상 동일한 답을 낸다. 두 가설은 분포 밖에서만 갈라진다. 그런데 현존 벤치마크들은 이 분리를 강제하지 않는다.</p>
+    <table>
+      <tr>
+        <th>벤치마크</th>
+        <th class="center">(a) Locality</th>
+        <th class="center">(b) Generalization</th>
+        <th class="center">(c) Reasoning over retrieval</th>
+      </tr>
+      <tr>
+        <td><b>Time-MMD</b> (NeurIPS 2024) <span class="sub">실제 multi-domain 텍스트, ROI 라벨 없음</span></td>
+        <td class="center"><span class="yn no">✗</span></td>
+        <td class="center"><span class="yn no">✗</span></td>
+        <td class="center"><span class="yn no">✗</span></td>
+      </tr>
+      <tr>
+        <td><b>CiK</b> (ICML 2025) <span class="sub">ROI metric은 도입했으나 텍스트가 synthetic</span></td>
+        <td class="center"><span class="yn partial">△</span></td>
+        <td class="center"><span class="yn no">✗</span></td>
+        <td class="center"><span class="yn ok">○</span></td>
+      </tr>
+      <tr>
+        <td><b>VoT, Time-LLM</b> 등 모델 평가 <span class="sub">단일 도메인 in-domain 한정</span></td>
+        <td class="center"><span class="yn no">✗</span></td>
+        <td class="center"><span class="yn no">✗</span></td>
+        <td class="center"><span class="yn no">✗</span></td>
+      </tr>
+      <tr class="ours">
+        <td><b>EATF (본 프로젝트)</b> <span class="sub">실제 multi-domain 텍스트 위에서 세 진단 동시 측정</span></td>
+        <td class="center"><span class="yn ok">○</span></td>
+        <td class="center"><span class="yn ok">○</span></td>
+        <td class="center"><span class="yn ok">○</span></td>
+      </tr>
+    </table>
+    <div class="foot">CiK의 △는 ROI metric은 있으나 텍스트가 합성이라 자연어의 다양성·모호성·암묵성을 평가할 수 없음. LLM 연구의 "understanding vs pattern matching" 논쟁과 같은 구조 — 분포 밖 진단 없이는 답할 수 없다.</div>
+  </section>
+
+  <!-- 6 OUR ANSWER -->
+  <section class="slide">
+    <h2><span class="num">05</span>그래서 만든 것 — 진단 ↔ 결과물 1:1 매핑</h2>
+    <p class="lead" style="margin-bottom:20px">(a)(b)(c) 각각을 측정 가능하게 만드는 구체적 결과물을 데이터셋 안에 함께 구축한다.</p>
     <table>
       <tr><th>진단</th><th>결과물</th><th>측정 metric</th></tr>
       <tr>
         <td><b>(a) Locality</b></td>
-        <td>ROI 라벨<br><span class="sub">LLM duration → CPD validation (IoU≥0.5) → human adjudication</span></td>
+        <td>ROI 라벨<br><span class="sub">LLM duration → CPD validation (IoU ≥ 0.5) → human adjudication</span></td>
         <td>ROI MSE vs non-ROI MSE</td>
       </tr>
       <tr>
@@ -177,12 +225,12 @@
         <td>clean ↔ noise gap</td>
       </tr>
     </table>
-    <div class="foot">셋 모두 통과해야 "이해". 어느 하나라도 떨어지면 그 모델은 in-distribution shortcut에 가깝다.</div>
+    <div class="foot">셋 모두 통과해야 "이해". 어느 하나라도 떨어지면 그 모델의 이벤트 처리는 in-distribution shortcut에 가깝다.</div>
   </section>
 
-  <!-- 6 DATA -->
+  <!-- 7 DATA -->
   <section class="slide">
-    <h2><span class="num">05</span>데이터 — 5 monthly 도메인, 텍스트 시대로 trim</h2>
+    <h2><span class="num">06</span>데이터 — 5 monthly 도메인, 텍스트 시대로 trim</h2>
     <table>
       <tr><th>도메인</th><th>OT 변수</th><th>텍스트 시대</th><th>rows</th><th>변경</th></tr>
       <tr><td><b>Agriculture</b></td><td>가격</td><td>1980-10 ~ 2024-04</td><td>523</td><td><span class="tag t-fix">532→523</span></td></tr>
@@ -191,16 +239,16 @@
       <tr><td><b>SocialGood</b></td><td>실업률</td><td>1980-01 ~ 2024-05</td><td>533</td><td><span class="tag t-cut">924→533</span></td></tr>
       <tr><td><b>Traffic</b></td><td>이동량</td><td>1980-01 ~ 2024-03</td><td>531</td><td><span class="tag t-fix">651→531</span></td></tr>
     </table>
-    <ul style="margin-top:18px">
+    <ul style="margin-top:16px">
       <li><b>왜 trim하나</b> — 이벤트-aware 벤치마크는 텍스트가 있는 구간에서만 의미. 텍스트 없는 앞 구간(SocialGood 1948~1980 등) 제거 → cross-domain 비교 가능성 ↑.</li>
       <li><b>Climate 제외</b> <span class="sub">— 실측 weekly. monthly 5개로 확정.</span></li>
       <li><b>LODO 1→4</b> <span class="sub">— 1개 학습 → 4개 평가 (어려운 셋업).</span></li>
     </ul>
   </section>
 
-  <!-- 7 PIPELINE -->
+  <!-- 8 PIPELINE + VALIDATION -->
   <section class="slide">
-    <h2><span class="num">06</span>데이터 파이프라인</h2>
+    <h2><span class="num">07</span>파이프라인 + 검증</h2>
     <div class="flow">
       <div class="step"><b>LOAD</b>numerical + text<br>(report·search)</div>
       <span class="arrow">→</span>
@@ -212,26 +260,25 @@
       <span class="arrow">→</span>
       <div class="step"><b>SAVE</b>data/processed/<br>{domain}_merged.csv</div>
     </div>
-    <pre><span class="m"># 단일 / 전체</span>
-uv run python build_dataset.py <span class="a">--domain</span> Economy
-uv run python build_dataset.py <span class="a">--all</span></pre>
-    <ul style="margin-top:14px">
-      <li>도메인별 차이는 <span class="mono">DOMAIN_CONFIG</span>의 <span class="mono">drop_cols</span>로 흡수.</li>
-      <li>최종 스키마 <span class="mono sub">date · start/end · vars(OT) · report/search_text · report/search_pred</span>.</li>
-      <li>Time-MMD upstream 이슈 자동 보정 (Traffic 연도-경계 end_date · Economy 내림차순 정렬 등).</li>
-    </ul>
-  </section>
-
-  <!-- 8 VALIDATION -->
-  <section class="slide">
-    <h2><span class="num">07</span>파이프라인 검증 — Time-MMD 베이스라인 재현</h2>
-    <p class="lead" style="margin-bottom:20px">우리 코드를 MM-TSFlib의 자기 데이터 CSV에 그대로 돌려 논문 수치 재현 시도. 결과는 명확하다.</p>
-    <ul>
-      <li><b>Traffic ✅</b> — DLinear / PatchTST 모든 horizon에서 논문과 정확 일치 <span class="sub">(0.35 / 0.21 등).</span></li>
-      <li><b>SocialGood ✅</b> — 우리 데이터에서도 MM 데이터에서도 모두 일치 <span class="sub">(데이터 vintage 무관).</span></li>
-      <li><b>Economy ✅ (조건부)</b> — 우리는 시간순 정렬이라 0.27, MM의 원본 내림차순 정렬을 그대로 따라하면 논문값 0.02 재현. <b style="color:var(--warn)">→ 논문 Economy 0.02는 미정렬 input artifact</b>로 확정.</li>
-    </ul>
-    <div class="foot">결론: 우리 파이프라인은 정확. 잔여 차이는 데이터 vintage(과거 확장 여부) · 정렬 정책 · 다채널 평가 metric 차이로 설명 가능. 우리 수치가 baseline의 "깨끗한" 버전.</div>
+    <div class="grid g2" style="margin-top:20px">
+      <div class="card">
+        <h3>구축 파이프라인</h3>
+        <ul style="font-size:14px;gap:6px;color:var(--ink)">
+          <li>도메인별 차이는 <span class="mono">DOMAIN_CONFIG.drop_cols</span>로 흡수</li>
+          <li>Time-MMD upstream 이슈 자동 보정 (Traffic 연도-경계 · Economy 정렬)</li>
+          <li>최종 스키마: <span class="mono sub">date · vars(OT) · report/search × {text, pred}</span></li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>정합성 검증</h3>
+        <ul style="font-size:14px;gap:6px;color:var(--ink)">
+          <li><b>Traffic ✅</b> 모든 horizon에서 논문 정확 일치</li>
+          <li><b>SocialGood ✅</b> 두 데이터 vintage 모두 일치</li>
+          <li><b>Economy ✅</b> MM의 미정렬 input을 따라하면 논문값 0.02 재현 <span class="tag t-warn">artifact</span></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot">결론: 우리 파이프라인은 정확. 우리 수치가 baseline의 "깨끗한" 버전.</div>
   </section>
 
   <!-- 9 STATUS / NEXT -->
@@ -240,7 +287,7 @@ uv run python build_dataset.py <span class="a">--all</span></pre>
     <div class="grid g2" style="margin-bottom:18px">
       <div class="card">
         <h3>완료</h3>
-        <ul style="font-size:15px;gap:8px">
+        <ul style="font-size:15px;gap:8px;color:var(--ink)">
           <li>5 도메인 CSV 통합 + 텍스트 시대 trim</li>
           <li>TS-only baseline (DLinear, PatchTST) 측정</li>
           <li>파이프라인 정합성 검증 (vs Time-MMD)</li>
@@ -250,7 +297,7 @@ uv run python build_dataset.py <span class="a">--all</span></pre>
       </div>
       <div class="card">
         <h3>다음 — Phase 3</h3>
-        <ul style="font-size:15px;gap:8px">
+        <ul style="font-size:15px;gap:8px;color:var(--ink)">
           <li>ROI 라벨링 파이프라인 (LLM + CPD + human)</li>
           <li>이후 Phase 5: multimodal baseline 통합</li>
           <li>그 위에서 (a)(b)(c) 동시 측정 실험</li>
