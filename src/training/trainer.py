@@ -9,13 +9,20 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 
 
+def _forward(model, x, te, device):
+    """모델 forward. is_multimodal이면 텍스트 임베딩(te)을 함께 넘긴다."""
+    if getattr(model, "is_multimodal", False):
+        return model(x.to(device), te.to(device))
+    return model(x.to(device), None, None, None)
+
+
 def _eval_loss(model, loader, crit, device) -> float:
     model.eval()
     tot, n = 0.0, 0
     with torch.no_grad():
-        for x, y, _, _ in loader:
-            x, y = x.to(device), y.to(device)
-            pred = model(x, None, None, None)
+        for x, y, _, _, te in loader:
+            y = y.to(device)
+            pred = _forward(model, x, te, device)
             tot += crit(pred, y).item() * len(x)
             n += len(x)
     return tot / max(n, 1)
@@ -46,10 +53,10 @@ def train_model(model, train_ds, val_ds=None, *, epochs=10, lr=1e-4, batch_size=
                 g["lr"] = cur_lr
 
         model.train()
-        for x, y, _, _ in train_loader:
-            x, y = x.to(device), y.to(device)
+        for x, y, _, _, te in train_loader:
+            y = y.to(device)
             opt.zero_grad()
-            loss = crit(model(x, None, None, None), y)
+            loss = crit(_forward(model, x, te, device), y)
             loss.backward()
             opt.step()
 
@@ -77,8 +84,8 @@ def predict(model, ds, *, batch_size=64, device="cpu"):
     loader = DataLoader(ds, batch_size=batch_size, shuffle=False)
     model.eval()
     preds, trues, means, stds = [], [], [], []
-    for x, y, m, s in loader:
-        p = model(x.to(device), None, None, None).cpu()
+    for x, y, m, s, te in loader:
+        p = _forward(model, x, te, device).cpu()
         preds.append(p)
         trues.append(y)
         means.append(m)

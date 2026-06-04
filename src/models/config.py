@@ -21,7 +21,7 @@ class ModelConfig:
 
     # ── data dimensions ────────────────────────────────────
     enc_in: int = 1         # 입력 변수 수 (OT 단변량=1, Agri/Econ 다변량=3)
-    dec_in: int = 1
+    dec_in: int = None      # None이면 enc_in을 따라감 (__post_init__)
     c_out: int = 1
 
     # ── transformer hyperparams (PatchTST 등) ──────────────
@@ -45,8 +45,26 @@ class ModelConfig:
     embed: str = "timeF"
     freq: str = "m"         # monthly
 
+    # ── encoder-decoder 계열 (Transformer/Autoformer/Informer/FEDformer) ──
+    output_attention: bool = False   # attention 가중치 반환 여부
+    distil: bool = True              # Informer distilling (ConvLayer 스택)
+
     # ── classification (forecast엔 미사용, 생성자가 참조) ──
     num_class: int = 1
+
+    # ── multimodal / text (MM-TSFlib 계열 fusion) ──────────
+    use_text: bool = False        # 멀티모달 여부 (loader가 텍스트 임베딩 부착 결정)
+    llm_model: str = "BERT"       # 텍스트 인코더 backbone: "BERT" | "GPT2"
+    d_llm: int = 768              # frozen LLM hidden dim (BERT/GPT2-small=768)
+    d_text: int = 32              # 텍스트 헤드 투영 차원 (d_llm -> d_text -> H*V)
+    prompt_weight: float = 0.1    # 융합 가중치: pred = ts_pred + w * text_pred
+    text_source: str = "both"     # "report" | "search" | "both"(결합)
+    text_pool: str = "avg"        # 토큰 풀링: "avg" | "max" (text_encoder가 참조)
+
+    def __post_init__(self):
+        # 디코더 입력 변수 수는 기본적으로 인코더와 동일 (enc-dec 모델 디코더 임베딩용)
+        if self.dec_in is None:
+            self.dec_in = self.enc_in
 
     def for_horizon(self, pred_len: int) -> "ModelConfig":
         """동일 설정에서 horizon만 바꾼 복사본 반환."""

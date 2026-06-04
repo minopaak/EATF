@@ -9,6 +9,15 @@ __pycache__/
 # 외부 클론 repo (각자 별도 git, 용량 큼)
 clones/
 
+# 가상환경
+.venv/
+
+# 텍스트 임베딩 캐시 (frozen LLM, 재생성 가능)
+data/text_emb/
+
+# 실험 결과/표 (재생성 가능; 코드만 추적)
+results/
+
 # 대용량 산출물 (필요시 주석 해제)
 # data/processed/*.csv
 

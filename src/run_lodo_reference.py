@@ -1,18 +1,18 @@
-"""전체 TS-swap LODO 베이스라인 (REFERENCE ONLY — 헤드라인 cross-domain 아님).
+"""TS-swap LODO reference (REFERENCE ONLY — 헤드라인 cross-domain 아님).
 
-효율적 설계: 각 source 도메인에 모델을 한 번만 학습 → 모든 target의 test split에 평가.
+각 source 도메인에 모델을 한 번만 학습 → 모든 target의 test split에 평가한 full 매트릭스.
   - 대각선 (source==target) = in-domain
   - 비대각선                 = cross-domain (TS-swap zero-shot LODO)
   - degradation[s, t] = MSE(s→t) / MSE(t→t)   (target의 in-domain 대비)
-
 전부 OT 단변량, per-domain global 표준화(dataset). 평가 공간은 각 target의 표준화 공간.
+(예: Economy→Agriculture 한 쌍만 보던 옛 pilot 은 이 매트릭스의 한 셀이라 여기에 포섭됨.)
 
 NOTE (2026-05): TS-swap LODO는 도메인 간 시계열 동역학 차이로 trivial fail이라
 헤드라인 결과 아님 (단순 reference). 헤드라인 cross-domain은 multimodal 모델의
 텍스트/이벤트 지식 transfer 테스트(Phase 5). 04_evaluation.md 참조.
 
 실행: EATF Dataset/ 에서
-    uv run python -m src.run_baseline
+    uv run python -m src.run_lodo_reference
 """
 import torch
 
@@ -44,8 +44,8 @@ def _print_matrix(title, mat, domains, fmt):
 def main():
     torch.manual_seed(SEED)
     domains = MONTHLY_DOMAINS
-    print(f"=== Full LODO Baseline ===  L={L}, H={H}, seed={SEED}, normalize=dataset")
-    print("(대각선=in-domain, 비대각선=cross-domain)\n")
+    print(f"=== TS-swap LODO Reference ===  L={L}, H={H}, seed={SEED}, normalize=dataset")
+    print("(대각선=in-domain, 비대각선=cross-domain; REFERENCE ONLY)\n")
 
     splits = {d: build_in_domain(d, L, H) for d in domains}  # OT 단변량, dataset 표준화
 

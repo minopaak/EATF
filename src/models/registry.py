@@ -13,11 +13,26 @@ src/models/*.py 를 사용 — 외부 import 의존 없음.)
 import torch.nn as nn
 
 from .config import ModelConfig
-from .architectures import PatchTST, DLinear
+from .architectures import (PatchTST, DLinear, iTransformer,
+                            Transformer, Autoformer, Informer, FEDformer, MMFusion)
 
 _MODELS = {
-    "PatchTST": PatchTST,   # transformer, patch 기반 (ICLR'23)
-    "DLinear":  DLinear,    # 분해 + 선형 (AAAI'23)
+    # ── unimodal ──────────────────────────────────────────
+    "PatchTST":     PatchTST,      # transformer, patch 기반 (ICLR'23)
+    "DLinear":      DLinear,       # 분해 + 선형 (AAAI'23)
+    "iTransformer": iTransformer,  # 변수-토큰 inverted attention (ICLR'24)
+    "Transformer":  Transformer,   # vanilla enc-dec (NeurIPS'17)
+    "Autoformer":   Autoformer,    # AutoCorrelation + decomp (NeurIPS'21)
+    "Informer":     Informer,      # ProbSparse attention (AAAI'21)
+    "FEDformer":    FEDformer,     # Fourier enhanced decomp (ICML'22)
+    # ── multimodal (MM-TSFlib 계열 fusion; TS 백본 + 텍스트 헤드) ──
+    "MM-TSFlib-PatchTST":     lambda c: MMFusion(c, "PatchTST"),
+    "MM-TSFlib-DLinear":      lambda c: MMFusion(c, "DLinear"),
+    "MM-TSFlib-iTransformer": lambda c: MMFusion(c, "iTransformer"),
+    "MM-TSFlib-Transformer":  lambda c: MMFusion(c, "Transformer"),
+    "MM-TSFlib-Autoformer":   lambda c: MMFusion(c, "Autoformer"),
+    "MM-TSFlib-Informer":     lambda c: MMFusion(c, "Informer"),
+    "MM-TSFlib-FEDformer":    lambda c: MMFusion(c, "FEDformer"),
 }
 
 
@@ -40,11 +55,15 @@ if __name__ == "__main__":
     cfg = ModelConfig(seq_len=L, pred_len=H, enc_in=V, c_out=V)
     x = torch.randn(B, L, V)
 
+    te = torch.randn(B, cfg.d_llm)   # 멀티모달용 더미 텍스트 임베딩
     for name in available_models():
         model = build_model(name, cfg)
         model.eval()
         with torch.no_grad():
-            out = model(x, None, None, None)
+            if getattr(model, "is_multimodal", False):
+                out = model(x, te)
+            else:
+                out = model(x, None, None, None)
         n_params = sum(p.numel() for p in model.parameters())
         ok = tuple(out.shape) == (B, H, V)
-        print(f"{name:10s} | out={tuple(out.shape)} | params={n_params:,} | shape_ok={ok}")
+        print(f"{name:20s} | out={tuple(out.shape)} | params={n_params:,} | shape_ok={ok}")

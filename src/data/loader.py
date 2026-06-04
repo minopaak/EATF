@@ -86,11 +86,15 @@ class WindowDataset(Dataset):
     """
 
     def __init__(self, series: np.ndarray, seq_len: int, pred_len: int,
-                 normalize: str = DEFAULT_NORMALIZE, scaler=None, eps: float = _EPS):
+                 normalize: str = DEFAULT_NORMALIZE, scaler=None, eps: float = _EPS,
+                 text_emb: np.ndarray = None):
         assert normalize in ("dataset", "instance", "none")
         if normalize == "dataset" and scaler is None:
             raise ValueError("normalize='dataset'은 scaler=(mean,std)가 필요합니다.")
         self.series = np.asarray(series, dtype=np.float32)
+        # text_emb[t] = 행 t(달)의 텍스트 임베딩. 윈도우는 look-back 마지막 달(예측
+        # 시점, s+L-1)의 임베딩을 사용 (MM-TSFlib 의 forecast-origin 텍스트와 동일).
+        self.text_emb = None if text_emb is None else np.asarray(text_emb, dtype=np.float32)
         self.L = seq_len
         self.H = pred_len
         self.normalize = normalize
@@ -118,26 +122,37 @@ class WindowDataset(Dataset):
 
         x_n = (x - mean) / std
         y_n = (y - mean) / std
+
+        if self.text_emb is not None:
+            te = self.text_emb[s + self.L - 1]               # 예측 시점 달의 텍스트
+        else:
+            te = np.zeros(1, dtype=np.float32)               # unimodal 더미 (모델이 무시)
+
         return (
             torch.from_numpy(np.asarray(x_n, dtype=np.float32)),
             torch.from_numpy(np.asarray(y_n, dtype=np.float32)),
             torch.from_numpy(np.asarray(mean, dtype=np.float32)),
             torch.from_numpy(np.asarray(std, dtype=np.float32)),
+            torch.from_numpy(np.asarray(te, dtype=np.float32)),
         )
 
 
-def _make_ds(series, seq_len, pred_len, normalize, scaler=None, tag=""):
-    ds = WindowDataset(series, seq_len, pred_len, normalize=normalize, scaler=scaler)
+def _make_ds(series, seq_len, pred_len, normalize, scaler=None, tag="", text_emb=None):
+    ds = WindowDataset(series, seq_len, pred_len, normalize=normalize, scaler=scaler,
+                       text_emb=text_emb)
     if len(ds) == 0:
         print(f"  [warn] {tag}: 구간 길이 {len(series)} 로 윈도우 0개 (L+H={seq_len + pred_len})")
     return ds
 
 
-def _trim_to_valid(arr: np.ndarray, tag: str = "") -> np.ndarray:
+def _trim_to_valid(arr: np.ndarray, tag: str = "", aux: np.ndarray = None):
     """선택된 변수들이 모두 유효한 연속 구간으로 자름 (앞/뒤 ragged NaN 제거).
 
     단변량(OT)은 보통 그대로 = 풀시리즈. 다변량은 늦게 시작하는 변수에 맞춰
     공통 윈도우가 됨. 내부 NaN이 남으면 경고.
+
+    aux(예: 행별 텍스트 임베딩 [T, d])를 주면 같은 구간으로 잘라 함께 반환한다.
+    aux=None: trimmed 단일 반환. aux 제공: (trimmed, aux_trimmed) 튜플 반환.
     """
     valid = ~np.isnan(arr).any(axis=1)
     if not valid.any():
@@ -151,13 +166,16 @@ def _trim_to_valid(arr: np.ndarray, tag: str = "") -> np.ndarray:
         print(f"  [trim] {tag}: ragged 구간 {n_drop} rows 제거 (유효 {len(trimmed)})")
     if internal > 0:
         print(f"  [warn] {tag}: 내부 NaN {internal} rows 잔존 (impute 필요)")
+    if aux is not None:
+        return trimmed, aux[first:last + 1]
     return trimmed
 
 
 def _standard_split(series: np.ndarray, seq_len: int, pred_len: int, normalize: str,
-                    train_ratio=0.7, test_ratio=0.2, tag="") -> dict:
+                    train_ratio=0.7, test_ratio=0.2, tag="", text_emb=None) -> dict:
     """TSLib Dataset_Custom 방식 train/val/test 분할 + (dataset 모드면) train-fit scaler.
     val/test는 직전 구간에서 seq_len 만큼 look-back을 빌려온다.
+    text_emb([T, d])를 주면 시리즈와 동일 border로 잘라 각 WindowDataset에 부착.
     """
     n = len(series)
     num_train = int(n * train_ratio)
@@ -178,7 +196,9 @@ def _standard_split(series: np.ndarray, seq_len: int, pred_len: int, normalize: 
     out = {"scaler": scaler}
     for t, name in enumerate(["train", "val", "test"]):
         seg = series[border1s[t]:border2s[t]]
-        out[name] = _make_ds(seg, seq_len, pred_len, normalize, scaler, f"{tag}/{name}")
+        seg_emb = text_emb[border1s[t]:border2s[t]] if text_emb is not None else None
+        out[name] = _make_ds(seg, seq_len, pred_len, normalize, scaler, f"{tag}/{name}",
+                             text_emb=seg_emb)
     return out
 
 
@@ -187,12 +207,27 @@ def _standard_split(series: np.ndarray, seq_len: int, pred_len: int, normalize: 
 # ─────────────────────────────────────────────────────────────
 def build_in_domain(domain: str, seq_len: int = DEFAULT_SEQ_LEN, pred_len: int = 12,
                     multivariate: bool = False, normalize: str = DEFAULT_NORMALIZE,
-                    data_dir: Path = DATA_DIR) -> dict:
-    """한 도메인 내 시간순 train/val/test (source==target)."""
+                    data_dir: Path = DATA_DIR, text: bool = False,
+                    llm: str = "BERT", text_source: str = "both", text_pool: str = "avg",
+                    text_layer: str = "embedding", device: str = "cpu") -> dict:
+    """한 도메인 내 시간순 train/val/test (source==target).
+
+    text=True 면 frozen LLM 텍스트 임베딩([T, d_llm])을 같은 trim/split로 부착해
+    멀티모달(MM-TSFlib 계열) 학습에 쓴다. 임베딩은 도메인별 1회 계산 후 캐시.
+    """
     df = load_domain_frame(domain, data_dir)
     cols, target_idx = get_var_columns(df, multivariate)
-    series = _trim_to_valid(df[cols].to_numpy(), tag=domain)  # 단변량=풀, 다변량=공통윈도우
-    sp = _standard_split(series, seq_len, pred_len, normalize, tag=domain)
+    arr = df[cols].to_numpy()
+    emb = None
+    if text:
+        from ..models.text_encoder import encode_domain
+        emb = encode_domain(domain, df, llm=llm, source=text_source,
+                            pool=text_pool, layer=text_layer, device=device)
+    if emb is not None:
+        series, emb = _trim_to_valid(arr, tag=domain, aux=emb)
+    else:
+        series = _trim_to_valid(arr, tag=domain)              # 단변량=풀, 다변량=공통윈도우
+    sp = _standard_split(series, seq_len, pred_len, normalize, tag=domain, text_emb=emb)
     return {
         "train": sp["train"], "val": sp["val"], "test": sp["test"],
         "var_cols": cols, "target_idx": target_idx, "mode": "in_domain",
@@ -276,7 +311,7 @@ if __name__ == "__main__":
 
     print("\n=== end-to-end ===")
     loader = make_dataloader(z["train"], batch_size=16, shuffle=True)
-    xb, yb, mb, sb = next(iter(loader))
+    xb, yb, mb, sb, te = next(iter(loader))
     cfg = ModelConfig(seq_len=L, pred_len=H, enc_in=1, c_out=1)
     for name in ("PatchTST", "DLinear"):
         model = build_model(name, cfg); model.eval()
