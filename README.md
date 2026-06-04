@@ -2,6 +2,33 @@
 
 Time-MMD 기반 cross-domain event-aware forecasting 벤치마크 데이터셋 구축 프로젝트.
 
+## Setup
+
+새로운 머신에서 처음 클론하는 경우:
+
+```bash
+git clone https://github.com/minopaak/EATF.git
+cd EATF
+
+# 가상환경 + 의존성 (uv 권장; 없으면 python -m venv + pip)
+uv venv --python 3.11
+uv pip install -e .
+
+# (선택) Time-MMD 원본을 직접 받아 재구축할 경우
+mkdir -p clones && cd clones
+git clone https://github.com/AdityaLab/Time-MMD.git
+cd ..
+python build_dataset.py
+```
+
+`data/processed/*.csv` (5개 도메인 가공본)은 repo에 포함되어 있어 **재구축 없이 베이스라인 실행 가능**. `clones/`는 `build_dataset.py`를 처음부터 다시 돌릴 때만 필요.
+
+베이스라인 실행:
+
+```bash
+python -m src.run_indomain  # in-domain DLinear/PatchTST
+```
+
 ## 프로젝트 구조
 
 ```

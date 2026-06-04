@@ -1,0 +1,20 @@
+[project]
+name = "eatf-dataset"
+version = "0.1.0"
+description = "Cross-Domain Event-Aware Time Series Forecasting Benchmark built on Time-MMD"
+requires-python = "==3.11.*"
+dependencies = [
+    "numpy>=2.0",
+    "pandas>=2.2",
+    "torch>=2.4",
+    "scikit-learn>=1.4",
+    "matplotlib>=3.8",
+    "jupyter>=1.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
