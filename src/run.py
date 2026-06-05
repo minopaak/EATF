@@ -44,24 +44,15 @@ TEXT_POOL = "avg"
 PROMPT_WEIGHT = 0.1
 
 
-def _make_cfg(H, nvar):
-    return ModelConfig(seq_len=L, pred_len=H, enc_in=nvar, c_out=nvar,
-                       use_text=True, llm_model=LLM, d_llm=D_LLM,
-                       prompt_weight=PROMPT_WEIGHT)
-
-
-def _is_mm(name):
-    """모델 이름이 멀티모달인지 (텍스트 임베딩 부착 필요 여부)."""
-    return getattr(build_model(name, _make_cfg(HORIZONS[0], 1)), "is_multimodal", False)
-
-
 def _seed_runs(mname, sp, H, domain, device, records):
     """3-seed 학습/평가. seed별 4지표를 records에 append하고 seed 평균 dict 반환."""
     nvar = len(sp["var_cols"])
     tidx = sp["target_idx"]
     per_seed = []
     for seed in SEEDS:
-        model = build_model(mname, _make_cfg(H, nvar))
+        cfg = ModelConfig(seq_len=L, pred_len=H, enc_in=nvar, c_out=nvar,
+                          use_text=True, llm_model=LLM, d_llm=D_LLM, prompt_weight=PROMPT_WEIGHT)
+        model = build_model(mname, cfg)
         model = train_model(model, sp["train"], sp["val"], epochs=10, lr=1e-4,
                             patience=5, lradj="type1", device=device, seed=seed)
         p, t, m, s = predict(model, sp["test"], device=device)
@@ -90,7 +81,7 @@ def main():
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     args = ap.parse_args()
     models, device = args.models, args.device
-    need_text = any(_is_mm(m) for m in models)
+    need_text = any(m.startswith("MM-TSFlib") for m in models)
 
     print("=== In-domain Baseline (통합: unimodal + 멀티모달, 3-seed 평균) ===")
     print(f"models = {models}")

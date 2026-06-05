@@ -110,12 +110,9 @@ class Transformer(nn.Module):
         output = self.projection(output)  # (batch_size, num_classes)
         return output
 
-    def _build_dec_input(self, x_enc):
-        # 디코더 입력 = [look-back 끝 label_len, pred_len 만큼 0] (인과적; 시간 마크 미사용)
-        B, _, V = x_enc.shape
-        dec_zeros = torch.zeros(B, self.pred_len, V, device=x_enc.device, dtype=x_enc.dtype)
-        return torch.cat([x_enc[:, -self.label_len:, :], dec_zeros], dim=1)
-
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None, mask=None):
-        dec_out = self.forecast(x_enc, None, self._build_dec_input(x_enc), None)
-        return dec_out[:, -self.pred_len:, :]  # [B, pred_len, D]
+        B, _, V = x_enc.shape
+        zeros = torch.zeros(B, self.pred_len, V, device=x_enc.device, dtype=x_enc.dtype)
+        # 디코더 입력 = [look-back 끝 label_len, pred_len 만큼 0] (인과적; 시간 마크 미사용)
+        x_dec = torch.cat([x_enc[:, -self.label_len:, :], zeros], dim=1)
+        return self.forecast(x_enc, None, x_dec, None)[:, -self.pred_len:, :]

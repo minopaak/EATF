@@ -161,11 +161,8 @@ class FEDformer(nn.Module):
         output = self.projection(output)
         return output
 
-    def _build_dec_input(self, x_enc):
-        B, _, V = x_enc.shape
-        dec_zeros = torch.zeros(B, self.pred_len, V, device=x_enc.device, dtype=x_enc.dtype)
-        return torch.cat([x_enc[:, -self.label_len:, :], dec_zeros], dim=1)
-
     def forward(self, x_enc, x_mark_enc=None, x_dec=None, x_mark_dec=None, mask=None):
-        dec_out = self.forecast(x_enc, None, self._build_dec_input(x_enc), None)
-        return dec_out[:, -self.pred_len:, :]  # [B, pred_len, D]
+        B, _, V = x_enc.shape
+        zeros = torch.zeros(B, self.pred_len, V, device=x_enc.device, dtype=x_enc.dtype)
+        x_dec = torch.cat([x_enc[:, -self.label_len:, :], zeros], dim=1)  # 인과적 디코더 입력
+        return self.forecast(x_enc, None, x_dec, None)[:, -self.pred_len:, :]
