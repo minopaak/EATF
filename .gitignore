@@ -26,3 +26,5 @@ results/
 Thumbs.db
 .vscode/
 .idea/
+data/pool_emb/
+data/mechanism/

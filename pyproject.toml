@@ -1,7 +1,7 @@
 [project]
 name = "eatf-dataset"
 version = "0.1.0"
-description = "Cross-Domain Event-Aware Time Series Forecasting Benchmark built on Time-MMD"
+description = "Event-Aware Time Series Forecasting via Mechanism Retrieval, built on Time-MMD"
 requires-python = "==3.11.*"
 dependencies = [
     "numpy>=2.0",
@@ -10,6 +10,8 @@ dependencies = [
     "scikit-learn>=1.4",
     "matplotlib>=3.8",
     "jupyter>=1.0",
+    "openai>=2.0",
+    "python-dotenv>=1.0",
 ]
 
 [build-system]

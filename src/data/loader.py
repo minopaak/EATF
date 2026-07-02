@@ -13,24 +13,16 @@ build_dataset.py(데이터 구축)와 구분: 이 파일은 구축된 CSV를 모
    → 예측 타깃은 각 구간 안에만(누수 없음), 입력만 과거 참조. 작은 도메인도 윈도우 0 안 됨.
 3. 정규화 (normalize):
    - 'dataset' (기본): per-domain global StandardScaler. 각 도메인의 **train 행에만 fit**한
-     평균/분산으로 그 도메인 전체를 표준화. MM-TSFlib(TSLib) 표준 방식과 동일. cross-domain
-     스케일 차를 없애면서도 이벤트(레짐 변화)를 도메인 기준 편차로 보존.
-   - 'instance' (옵션/ablation): RevIN. 각 윈도우를 look-back 통계로 정규화. "미래≈과거"를
-     가정하므로 ROI(이벤트) 구간에서 왜곡 가능.
+     평균/분산으로 그 도메인 전체를 표준화. MM-TSFlib(TSLib) 표준 방식과 동일.
+     이벤트(레짐 변화)를 도메인 기준 편차로 보존.
+   - 'instance' (옵션/ablation): RevIN. 각 윈도우를 look-back 통계로 정규화.
    - 'none': 정규화 안 함.
    어느 모드든 (x, y, mean, std)를 반환 → 예측을 원 스케일로 역정규화 가능.
-4. 변수: 단변량(OT) 기본, 다변량 옵션. cross-domain은 변수 집합이 도메인마다 달라 OT 강제.
-
-평가 일관성
------------
-in-domain test 와 cross-domain test 모두 **target 도메인의 test split**을 동일 정규화
-(target train 통계)로 평가 → degradation ratio (cross MSE / in-domain MSE)를 동일 기준에서 계산.
+4. 변수: 단변량(OT) 기본, 다변량 옵션.
 
 빌더
 ----
-  build_in_domain(domain, ...)            : source==target. train/val/test 모두 한 도메인
-  build_zero_shot_lodo(source, target,..) : source train/val 학습 → target test split 평가
-  build_few_shot_lodo(source, target, n,.): source + target train 앞 N윈도우 → target test 평가
+  build_in_domain(domain, ...) : 한 도메인 내 시간순 train/val/test
 
 모델 forward 규약: model(x, None, None, None) -> [B, H, V]
 """
@@ -39,7 +31,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import torch
-from torch.utils.data import Dataset, DataLoader, ConcatDataset, Subset
+from torch.utils.data import Dataset, DataLoader
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = PROJECT_ROOT / "data" / "processed"
@@ -235,54 +227,6 @@ def build_in_domain(domain: str, seq_len: int = DEFAULT_SEQ_LEN, pred_len: int =
     }
 
 
-def build_zero_shot_lodo(source: str, target: str, seq_len: int = DEFAULT_SEQ_LEN,
-                         pred_len: int = 12, normalize: str = DEFAULT_NORMALIZE,
-                         data_dir: Path = DATA_DIR) -> dict:
-    """source train/val 학습 → target test split 평가 (OT 단변량).
-    source는 source train 통계로, target은 target train 통계로 각각 표준화.
-
-    NOTE: TS-swap LODO 스캐폴드 — 헤드라인 cross-domain 실험(multimodal 텍스트/이벤트
-    transfer, Phase 5)이 아닌 reference용. `04_evaluation.md` 참조.
-    """
-    s_series = _trim_to_valid(load_domain_frame(source, data_dir)[["OT"]].to_numpy(), tag=source)
-    t_series = _trim_to_valid(load_domain_frame(target, data_dir)[["OT"]].to_numpy(), tag=target)
-    src = _standard_split(s_series, seq_len, pred_len, normalize, tag=source)
-    tgt = _standard_split(t_series, seq_len, pred_len, normalize, tag=target)
-    return {
-        "train": src["train"], "val": src["val"], "test": tgt["test"],
-        "var_cols": ["OT"], "target_idx": 0, "mode": "zero_shot_lodo",
-        "source": source, "target": target,
-        "source_scaler": src["scaler"], "target_scaler": tgt["scaler"],
-    }
-
-
-def build_few_shot_lodo(source: str, target: str, n_shots: int,
-                        seq_len: int = DEFAULT_SEQ_LEN, pred_len: int = 12,
-                        normalize: str = DEFAULT_NORMALIZE, data_dir: Path = DATA_DIR) -> dict:
-    """source train + target train의 앞 N윈도우 학습 → target test split 평가 (OT 단변량).
-
-    few-shot 샘플은 target의 train split에서(누수 방지) 가져오고 target scaler로 표준화.
-    """
-    s_series = _trim_to_valid(load_domain_frame(source, data_dir)[["OT"]].to_numpy(), tag=source)
-    t_series = _trim_to_valid(load_domain_frame(target, data_dir)[["OT"]].to_numpy(), tag=target)
-    src = _standard_split(s_series, seq_len, pred_len, normalize, tag=source)
-    tgt = _standard_split(t_series, seq_len, pred_len, normalize, tag=target)
-
-    n_avail = len(tgt["train"])
-    k = min(n_shots, n_avail)
-    if k < n_shots:
-        print(f"  [warn] {target}: few-shot {k}개만 가능 (요청 {n_shots}, train 윈도우 {n_avail})")
-    few = Subset(tgt["train"], list(range(k)))
-
-    return {
-        "train": ConcatDataset([src["train"], few]),
-        "val": src["val"], "test": tgt["test"],
-        "var_cols": ["OT"], "target_idx": 0, "mode": "few_shot_lodo",
-        "source": source, "target": target, "n_shots": k,
-        "source_scaler": src["scaler"], "target_scaler": tgt["scaler"],
-    }
-
-
 def make_dataloader(ds, batch_size: int = 32, shuffle: bool = False,
                     num_workers: int = 0) -> DataLoader:
     return DataLoader(ds, batch_size=batch_size, shuffle=shuffle,
@@ -300,17 +244,14 @@ if __name__ == "__main__":
     print(f"L={L}, H={H}, normalize={DEFAULT_NORMALIZE}\n")
 
     print("=== in-domain 윈도우 수 (단변량) ===")
+    splits = {}
     for d in MONTHLY_DOMAINS:
         s = build_in_domain(d, L, H)
+        splits[d] = s
         print(f"  {d:12s} train={len(s['train']):4d} val={len(s['val']):3d} test={len(s['test']):3d}")
 
-    print("\n=== zero-shot LODO: Economy -> Agriculture ===")
-    z = build_zero_shot_lodo("Economy", "Agriculture", L, H)
-    print(f"  train={len(z['train'])} val={len(z['val'])} test={len(z['test'])}")
-    print(f"  source_scaler(mean,std)={z['source_scaler']}  target_scaler={z['target_scaler']}")
-
     print("\n=== end-to-end ===")
-    loader = make_dataloader(z["train"], batch_size=16, shuffle=True)
+    loader = make_dataloader(splits["Economy"]["train"], batch_size=16, shuffle=True)
     xb, yb, mb, sb, te = next(iter(loader))
     cfg = ModelConfig(seq_len=L, pred_len=H, enc_in=1, c_out=1)
     for name in ("PatchTST", "DLinear"):

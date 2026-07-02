@@ -1,102 +1,79 @@
-# Cross-Domain Event-Aware Time Series Forecasting Benchmark
+# EATF: Event-Aware Time Series Forecasting via Mechanism Retrieval
 
-Time-MMD 기반 cross-domain event-aware forecasting 벤치마크 데이터셋 구축 프로젝트.
+Time-MMD 기반 이벤트-인지 시계열 예측 프로젝트. 예측 맥락에 맞는 외부 **메커니즘 지식**을 사전 구축 pool에서 검색해 예측을 조건화한다. 문제 정의는 [MD_files/01_motivation.md](MD_files/01_motivation.md), 전체 방법은 [state_conditioned_mechanism_retrieval_full_method.md](MD_files/state_conditioned_mechanism_retrieval_full_method.md) 참조.
+
+> **We retrieve mechanisms, not events.**
 
 ## Setup
-
-새로운 머신에서 처음 클론하는 경우:
 
 ```bash
 git clone https://github.com/minopaak/EATF.git
 cd EATF
-
-# 가상환경 + 의존성 (uv 권장; 없으면 python -m venv + pip)
 uv venv --python 3.11
 uv pip install -e .
 
-# (선택) Time-MMD 원본을 직접 받아 재구축할 경우
-mkdir -p clones && cd clones
-git clone https://github.com/AdityaLab/Time-MMD.git
-cd ..
-python build_dataset.py
+# (선택) Time-MMD 원본으로 데이터 재구축
+mkdir -p clones && cd clones && git clone https://github.com/AdityaLab/Time-MMD.git && cd ..
+python build_dataset.py --all
 ```
 
-`data/processed/*.csv` (5개 도메인 가공본)은 repo에 포함되어 있어 **재구축 없이 베이스라인 실행 가능**. `clones/`는 `build_dataset.py`를 처음부터 다시 돌릴 때만 필요.
-
-베이스라인 실행:
+`data/processed/*.csv`(5개 도메인 가공본)는 repo에 포함 — 재구축 없이 베이스라인 실행 가능.
 
 ```bash
-python -m src.run_indomain  # in-domain DLinear/PatchTST
+CUDA_VISIBLE_DEVICES=4 python -m src.run       # in-domain 베이스라인 (7 백본 × {uni, MM})
+python -m src.report seedavg                    # seed 평균 CSV
+python -m src.report latex --metric mse         # LaTeX 표
 ```
 
 ## 프로젝트 구조
 
 ```
-EATF Dataset/
-├── README.md                          # 이 파일
-├── .gitignore
-├── build_dataset.py                   # 데이터 구축 (Phase 1, 모델 학습 이전 단계)
-├── MD_files/                          # 설계 문서 (01_motivation ~ 05_roadmap)
+EATF/
+├── build_dataset.py            # 예측 데이터 구축 (Time-MMD → processed CSV)
+├── MD_files/                   # 설계 문서 (01_motivation ~ 05_roadmap + method 원본)
 ├── data/
-│   └── processed/                     # 가공된 CSV (5개 도메인)
-│       ├── Agriculture_merged.csv
-│       ├── Economy_merged.csv
-│       ├── Security_merged.csv
-│       ├── SocialGood_merged.csv
-│       └── Traffic_merged.csv
-├── notebooks/
-│   └── 01_eda.ipynb                   # EDA
-├── reports/
-│   └── progress_summary.html          # 진행 요약 슬라이드
-├── src/                               # 모델 / 학습 코드 (Phase 2~)
-│   ├── data/
-│   │   └── loader.py                  #   학습용 로더 (윈도우 / RevIN / LODO)
+│   ├── processed/              # 5개 도메인 merged CSV
+│   └── text_emb/               # frozen LLM 임베딩 캐시 (gitignore)
+├── results/                    # 실험 결과 CSV / LaTeX (gitignore)
+├── notebooks/01_eda.ipynb
+├── src/
+│   ├── run.py                  # in-domain 베이스라인 러너
+│   ├── report.py               # seed 평균 / 비교 / LaTeX
+│   ├── sweep.py                # prompt_weight ablation
+│   ├── data/loader.py          # 윈도우 로더 (build_in_domain)
+│   ├── evaluation/metrics.py   # MSE/MAE/RMSE/MAPE
+│   ├── training/trainer.py     # 학습/예측 루프
 │   └── models/
-│       ├── config.py                  #   ModelConfig (framework)
-│       ├── layers.py                  #   공통 빌딩 블록 (framework)
-│       ├── registry.py                #   build_model(name, cfg)
-│       └── architectures/             #   모델 구현
-│           ├── patchtst.py            #     PatchTST
-│           └── dlinear.py             #     DLinear
-└── clones/                            # 외부 repo (각자 .git, gitignore 처리)
-    ├── Time-MMD/                      # 원본 데이터
-    ├── Time-Series-Library/          # TSLib (모델 구현 참고용)
-    └── MM-TSFlib/                    # Time-MMD native 베이스라인
+│       ├── config.py, registry.py, text_encoder.py
+│       ├── layers/             # 공통 빌딩 블록 (TSLib/MM-TSFlib 이식, 출처 헤더 표기)
+│       └── architectures/      # 7 백본 (DLinear/PatchTST/iTransformer/Transformer/
+│                               #   Autoformer/Informer/FEDformer) + mm_fusion
+└── clones/                     # 외부 repo (gitignore)
 ```
 
-추후 추가 예정: `src/training/`, `src/evaluation/`, `src/annotation/`, `results/`
+**Mechanism pool**은 별도 repo `knowledge_pool`이 생성하고(DK/HE JSON), EATF는 이를 소비만 한다. [MD_files/02_dataset_design.md](MD_files/02_dataset_design.md) §B 참조.
 
 ## 진행 상황
 
-- [x] 연구 방향 및 차별점 설계
-- [x] 데이터셋 스코프 결정 (Monthly 5개 도메인 — Climate는 실측 weekly로 제외)
-- [x] ROI 정의 및 라벨링 파이프라인 설계
-- [x] 평가 프로토콜 설계
-- [x] 베이스라인 선정
-- [x] 데이터 통합 CSV 생성 (5개 도메인, `data/processed/`, 텍스트 시대 trim 적용)
-- [x] TS-only 베이스라인 (DLinear, PatchTST, L=8, 3-seed) 측정
-- [x] 파이프라인 정합성 검증 (MM-TSFlib 데이터로 우리 코드 돌려 논문 재현)
-- [ ] EDA 노트북 (Phase 1 잔여)
-- [ ] **LLM 이벤트 라벨링 파이프라인 구현 (Phase 3) ← 다음**
-- [ ] CPD 검증 통합
-- [ ] Multimodal 베이스라인 통합 (Phase 5) — cross-domain 텍스트 transfer 헤드라인 실험
-- [ ] 분석 및 작성
-
-## 다음 단계
-
-**Phase 3 (ROI 라벨링)부터.** 헤드라인 cross-domain 실험은 단순 TS-swap LODO가 아니라 multimodal 모델의 텍스트/이벤트 지식 transfer 테스트라, multimodal 베이스라인(Phase 5)이 필요하고 그건 ROI 라벨이 전제. 자세한 설계는 [04_evaluation.md](MD_files/04_evaluation.md)·[05_roadmap.md](MD_files/05_roadmap.md) 참조.
+- [x] 문제 정의 재정립 (메커니즘-증강 예측)
+- [x] 예측 데이터 5개 도메인 구축 (텍스트 시대 trim)
+- [x] in-domain 베이스라인 (7 백본 × {unimodal, MM-TSFlib}, L=8, 3-seed) — **local branch 참조선**
+- [x] 파이프라인 정합성 검증 (MM-TSFlib 논문 재현)
+- [ ] mechanism pool 소비 브리지 + retrieval 인프라 ← **다음**
+- [ ] mechanism-aware forecasting 모델 (local + global branch + gated fusion)
+- [ ] inner/outer loop 학습
+- [ ] 평가·ablation·논문 작성
 
 ## 핵심 설계 결정
 
 | 항목 | 결정 |
 |------|------|
-| 기반 데이터 | Time-MMD |
-| 도메인 | Monthly 5개 (Agriculture, Economy, Security, SocialGood, Traffic) |
-| 시간 범위 | **텍스트 시대로 trim** (텍스트 존재 구간; Agri 523/Eco 447/Sec 309/Social 533/Traffic 531행) |
-| 텍스트 | Report + Search 둘 다 사용, 컬럼 분리 |
-| 텍스트 월 매칭 | Majority-overlap (윈도우가 더 많이 걸친 월; 동률시 빠른 월) |
-| Look-back / Horizon | L=8 (Time-MMD monthly), H={6, 8, 10, 12} |
-| ROI 추정 | pred 우선 → 없으면 LLM+CPD |
-| 평가 트랙 | Track A (사전 라벨) + Track B (원본 텍스트) |
-| LODO 방향 | 1개 학습 → 4개 평가 |
+| 기반 데이터 | Time-MMD (monthly 5개 도메인) |
+| 도메인 | Agriculture, Economy, Security, SocialGood, Traffic |
+| 시간 범위 | 텍스트 시대로 trim (Agri 523/Eco 447/Sec 309/Social 533/Traffic 531행) |
+| 텍스트 | Report + Search (Security는 search-only) |
+| Look-back / Horizon | L=8, H={6,8,10,12} |
+| 정규화 | per-domain global StandardScaler (RevIN 금지) |
+| Mechanism pool | DK(일반 원리) + HE(역사적 사건), `knowledge_pool` 산출 JSON 소비 |
+| 검색 대상 | 이벤트가 아니라 메커니즘 `content` |
 | Memorization | CiK 방식 (Gaussian noise) |

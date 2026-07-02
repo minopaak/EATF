@@ -7,8 +7,6 @@ from .loader import (
     load_domain_frame,
     get_var_columns,
     build_in_domain,
-    build_zero_shot_lodo,
-    build_few_shot_lodo,
     make_dataloader,
     MONTHLY_DOMAINS,
 )
@@ -18,8 +16,6 @@ __all__ = [
     "load_domain_frame",
     "get_var_columns",
     "build_in_domain",
-    "build_zero_shot_lodo",
-    "build_few_shot_lodo",
     "make_dataloader",
     "MONTHLY_DOMAINS",
 ]
